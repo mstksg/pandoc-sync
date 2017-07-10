@@ -19,6 +19,8 @@ library
                        Text.Pandoc.Sync.Format
                        Text.Pandoc.Sync.File
   build-depends:       base >= 4.7 && < 5
+                     , binary
+                     , binary-orphans
                      , bytestring
                      , containers
                      , data-default
@@ -29,6 +31,7 @@ library
                      , pandoc
                      , psqueues
                      , singletons
+                     , skylighting
                      , time
                      , transformers
                      , type-combinators
@@ -36,13 +39,13 @@ library
   default-language:    Haskell2010
   ghc-options:         -Wall
 
--- executable pandoc-sync-exe
---   hs-source-dirs:      app
---   main-is:             Main.hs
---   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
---   build-depends:       base
---                      , pandoc-sync
---   default-language:    Haskell2010
+executable pandoc-sync
+  hs-source-dirs:      app
+  main-is:             Sync.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , pandoc-sync
+  default-language:    Haskell2010
 
 -- test-suite pandoc-sync-test
 --   type:                exitcode-stdio-1.0

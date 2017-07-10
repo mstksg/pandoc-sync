@@ -1,10 +1,12 @@
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE KindSignatures      #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving  #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE TypeInType          #-}
+{-# LANGUAGE DeriveGeneric             #-}
+{-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE KindSignatures            #-}
+{-# LANGUAGE LambdaCase                #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE StandaloneDeriving        #-}
+{-# LANGUAGE TypeApplications          #-}
+{-# LANGUAGE TypeInType                #-}
+{-# OPTIONS_GHC -fno-warn-warn-orphans #-}
 
 module Text.Pandoc.Sync.Format (
     MarkdownType(..)
@@ -12,8 +14,9 @@ module Text.Pandoc.Sync.Format (
   , Format(..)
   , WriterFormat(..)
   , ReaderOptions(..)
-  , _ROReadable
-  , _ROUnreadable
+  , readerOptions
+  , WriterOptions(..)
+  , writerOptions
   , formatReader
   , formatWriter
   , readerString
@@ -26,7 +29,11 @@ import           Data.Kind
 import           Data.Maybe
 import           Data.Singletons
 import           Data.Singletons.Prelude.Bool
+import           GHC.Generics                 (Generic)
+import qualified Data.Binary                  as Bi
+import qualified Skylighting.Types            as Sky
 import qualified Text.Pandoc                  as P
+import qualified Text.Pandoc.MediaBag         as P
 
 data MarkdownType = MDPandoc
                   | MDStrict
@@ -63,7 +70,7 @@ data Format :: Bool -> Bool -> Type where
     FDocX         :: Format 'True  'True
     FODT          :: Format 'True  'True
     FT2T          :: Format 'True  'False
-    FEPub         :: Bool
+    FEPub         :: P.EPUBVersion
                   -> Format 'True  'True
     FFictionBook2 :: Format 'False 'True
     FICML         :: Format 'False 'True
@@ -80,29 +87,39 @@ data Format :: Bool -> Bool -> Type where
 
 deriving instance Show (Format r w)
 
+instance Bi.Binary (Format r w) where
+    get = undefined
+    put = undefined
+
 -- data ReaderFormat :: Type where
 --     ReaderFormat :: SingI w => Format 'True w -> ReaderFormat
 
 data WriterFormat :: Type where
     WriterFormat :: SingI r => Format r 'True -> WriterFormat
 
--- data SomeFormat :: Type where
---     SomeFormat :: Sing r -> Sing w -> Format r w -> SomeFormat
+data SomeFormat :: Type where
+    SomeFormat :: Sing r -> Sing w -> Format r w -> SomeFormat
 
-data ReaderOptions :: Bool -> Type where
-    ROReadable   :: P.ReaderOptions -> ReaderOptions 'True
-    ROUnreadable :: ReaderOptions 'False
+data ReaderOptions = RO
+    deriving (Show, Eq, Ord, Generic)
 
-_ROReadable :: Iso' (ReaderOptions 'True) P.ReaderOptions
-_ROReadable = iso (\case ROReadable ro -> ro) ROReadable
+data WriterOptions = WO
+    deriving (Show, Eq, Ord, Generic)
 
-_ROUnreadable :: Iso' (ReaderOptions 'False) ()
-_ROUnreadable = iso (const ()) (const ROUnreadable)
+instance Bi.Binary ReaderOptions
+instance Bi.Binary WriterOptions
 
-instance SingI r => Default (ReaderOptions r) where
-    def = case sing @Bool @r of
-            STrue  -> ROReadable def
-            SFalse -> ROUnreadable
+instance Default ReaderOptions where
+    def = RO
+
+instance Default WriterOptions where
+    def = WO
+
+readerOptions :: ReaderOptions -> P.ReaderOptions
+readerOptions _ = def
+
+writerOptions :: WriterOptions -> P.WriterOptions
+writerOptions _ = def
 
 formatReader
     :: Format 'True w
@@ -162,7 +179,7 @@ writerString = \case
     FHaddock      -> "haddock"
     FDocX         -> "docx"
     FODT          -> "odf"
-    FEPub three   -> "epub" ++ if three then "3" else ""
+    FEPub epv     -> "epub" ++ case epv of P.EPUB2 -> ""; P.EPUB3 -> ""
     FFictionBook2 -> "fb2"
     FICML         -> "icml"
     FSlideShow ss -> case ss of
@@ -180,3 +197,46 @@ writerString = \case
     FDokuWiki     -> "dokuwiki"
     FASCIIDoc     -> "asciidoc"
     FTEI          -> "tei"
+
+-- formatString :: Format r w -> String
+-- formatString = \case
+--     FNative       -> "native"
+--     FJSON         -> "json"
+--     FMarkdown mt  -> case mt of
+--       MDPandoc    -> "markdown"
+--       MDStrict    -> "markdown_strict"
+--       MDPHP       -> "markdown_phpextra"
+--       MDGithub    -> "markdown_github"
+--       MDMulti     -> "markdown_mmd"
+--       MDCommon    -> "commonmark"
+--     FRST          -> "rst"
+--     FMediaWiki    -> "mediawiki"
+--     FDocBook      -> "docbook"
+--     FOPML         -> "opml"
+--     FOrg          -> "org"
+--     FTextile      -> "textile"
+--     FHTML five    -> "html" ++ if five then "5" else ""
+--     FLaTeX        -> "latex"
+--     FHaddock      -> "haddock"
+--     FDocX         -> "docx"
+--     FODT          -> "odf"
+--     FEPub epv     -> "epub" ++ case epv of P.EPUB2 -> ""; P.EPUB3 -> ""
+--     FFictionBook2 -> "fb2"
+--     FICML         -> "icml"
+--     FSlideShow ss -> case ss of
+--       SSS5        -> "s5"
+--       SSSlidy     -> "slidy"
+--       SSSlideous  -> "slideous"
+--       SSDZSlides  -> "dzslides"
+--       SSRevealJS  -> "revealjs"
+--       SSBeamer    -> "beamer"
+--     FOpenDocument -> "opendocument"
+--     FContext      -> "context"
+--     FTexinfo      -> "texinfo"
+--     FMan          -> "man"
+--     FPlain        -> "plain"
+--     FDokuWiki     -> "dokuwiki"
+--     FASCIIDoc     -> "asciidoc"
+--     FTEI          -> "tei"
+--     FTWiki        -> "twiki"
+--     FT2T          -> "t2t"

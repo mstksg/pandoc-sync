@@ -1,11 +1,14 @@
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE GADTs           #-}
-{-# LANGUAGE KindSignatures  #-}
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TupleSections   #-}
-{-# LANGUAGE TypeOperators   #-}
-{-# LANGUAGE ViewPatterns    #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE KindSignatures      #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 module Text.Pandoc.Sync.File (
     SyncFileData(..)
@@ -13,6 +16,10 @@ module Text.Pandoc.Sync.File (
   , sfSourcesSinks
   , emptySyncFile
   , runSyncFile
+  , module PS
+  , HasIf
+  , _Has
+  , _Hasn't
   ) where
 
 import           Control.Lens hiding        ((<.>))
@@ -20,6 +27,8 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
+import           Data.Binary.Orphans        ()
+import           Data.Default
 import           Data.Dependent.Sum
 import           Data.Foldable
 import           Data.Kind
@@ -27,8 +36,10 @@ import           Data.Singletons
 import           Data.Singletons.Prelude
 import           Data.Time.Clock
 import           Data.Witherable
+import           GHC.Generics               (Generic)
 import           System.Directory
-import           Text.Pandoc.Sync.Format
+import           Text.Pandoc.Sync.Format    as PS
+import qualified Data.Binary                as Bi
 import qualified Data.ByteString.Lazy       as B
 import qualified Data.Map                   as M
 import qualified Data.OrdPSQ                as PS
@@ -40,28 +51,53 @@ import qualified Text.Pandoc.SelfContained  as P
 import qualified Text.Pandoc.Shared         as P
 import qualified Text.Pandoc.UTF8           as UTF8
 
+data HasIf :: Bool -> Type -> Type where
+    Has    :: a -> HasIf 'True a
+    Hasn't :: HasIf 'False a
+
+_Has :: Iso' (HasIf 'True a) a
+_Has = iso (\case Has x -> x) Has
+
+_Hasn't :: Iso' (HasIf 'False a) ()
+_Hasn't = iso (const ()) (const Hasn't)
+
+instance (SingI b, Bi.Binary a) => Bi.Binary (HasIf b a) where
+    get = case sing @_ @b of
+      STrue  -> Has <$> Bi.get
+      SFalse -> return Hasn't
+    put = \case
+      Has x  -> Bi.put x
+      Hasn't -> return ()
+
+instance (SingI b, Default a) => Default (HasIf b a) where
+    def = case sing @_ @b of
+      STrue  -> Has def
+      SFalse -> Hasn't
 
 data SyncFileData :: Bool -> Type where
     SyncFileData :: { _sfdFormat     :: Format r 'True
-                    , _sfdReaderOpts :: ReaderOptions r
-                    , _sfdWriterOpts :: P.WriterOptions
+                    , _sfdReaderOpts :: HasIf r ReaderOptions
+                    , _sfdWriterOpts :: WriterOptions
                     , _sfdLastSync   :: Maybe UTCTime
                     }
                  -> SyncFileData r
+  deriving (Generic)
 
 makeLenses ''SyncFileData
 
--- data DiscoverMode = DMSameDir     (M.Map WriterFormat String) FilePath
---                   | DMParallelDir (M.Map WriterFormat (FilePath, String))
+instance SingI r => Bi.Binary (SyncFileData r)
 
 data SyncFile = SyncFile
     { _sfSources    :: M.Map FilePath (SyncFileData 'True )
     , _sfSinks      :: M.Map FilePath (SyncFileData 'False)
-    , _sfLastUpdate :: Maybe (UTCTime, P.Pandoc)
-    -- , _syncDiscover   :: Maybe (String, DiscoverMode)
+    -- TODO: add back in P.Pandoc to lastupdate
+    , _sfLastUpdate :: Maybe UTCTime
     }
+  deriving (Generic)
 
 makeLenses ''SyncFile
+
+instance Bi.Binary SyncFile
 
 emptySyncFile :: SyncFile
 emptySyncFile = SyncFile M.empty M.empty Nothing
@@ -112,7 +148,7 @@ runSyncFile s0 = do
       modTime <- liftIO $ getModificationTime fp
       guard $ anyOf (sfdLastSync . _Just) (< modTime) sfd
       liftIO . (fmap . fmap) ((sfd ^. sfdLastSync,) . fst) $
-        readPandoc (sfd ^. sfdFormat) (sfd ^. sfdReaderOpts . _ROReadable) fp
+        readPandoc (sfd ^. sfdFormat) (sfd ^. sfdReaderOpts . _Has . to readerOptions) fp
     let sortedUpdates = mapToQueue id updates
     case PS.minView sortedUpdates of
       Nothing -> do
@@ -122,7 +158,7 @@ runSyncFile s0 = do
         putStrLn "Updates found!"
         itraverse_ backupError updatesE
         itraverse_ backupLater $ queueToMap (flip const) laterUpdates
-        s0 & sfLastUpdate                  .~ Just (syncTime, pd)
+        s0 & sfLastUpdate                  .~ Just syncTime
            & sfSourcesSinks . itraversed %%@~ \fp' (s :=> sfd) -> do
                sfd' <- updateSource syncTime (fp == fp') pd fp' sfd
                return $ s :=> sfd'
@@ -135,20 +171,20 @@ runSyncFile s0 = do
     updateSource st skipWrite pd fp sfd = do
       unless skipWrite $ case formatWriter (sfd ^. sfdFormat) of
         P.IOStringWriter f ->
-          UTF8.writeFile fp                =<< f (sfd ^. sfdWriterOpts) pd
+          UTF8.writeFile fp                =<< f (sfd ^. sfdWriterOpts . to writerOptions) pd
         P.IOByteStringWriter f ->
-          B.writeFile (UTF8.encodePath fp) =<< f (sfd ^. sfdWriterOpts) pd
+          B.writeFile (UTF8.encodePath fp) =<< f (sfd ^. sfdWriterOpts . to writerOptions) pd
         P.PureStringWriter f -> case pdfEngine (sfd ^. sfdFormat) of
           Just eng -> do
             -- TODO: handle lack of prog?
             -- Just mbPdfProg <- findExecutable eng
-            res <- P.makePDF eng f (sfd ^. sfdWriterOpts) pd
+            res <- P.makePDF eng f (sfd ^. sfdWriterOpts . to writerOptions) pd
             -- TODO: handle bad res?
             traverse_ (B.writeFile (UTF8.encodePath fp)) res
           Nothing -> do
-              let res = f (sfd ^. sfdWriterOpts) pd
+              let res = f (sfd ^. sfdWriterOpts . to writerOptions) pd
               out <- if htmlFormat (sfd ^. sfdFormat)
-                 then P.makeSelfContained (sfd ^. sfdWriterOpts) res
+                 then P.makeSelfContained (sfd ^. sfdWriterOpts . to writerOptions) res
                  else return res
               UTF8.writeFile fp out
 

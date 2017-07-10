@@ -1,8 +1,10 @@
-{-# LANGUAGE GADTs              #-}
-{-# LANGUAGE KindSignatures     #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeInType         #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE KindSignatures      #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving  #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeInType          #-}
 
 module Text.Pandoc.Sync.Format (
     MarkdownType(..)
@@ -19,10 +21,12 @@ module Text.Pandoc.Sync.Format (
   ) where
 
 import           Control.Lens
+import           Data.Default
 import           Data.Kind
 import           Data.Maybe
 import           Data.Singletons
-import qualified Text.Pandoc     as P
+import           Data.Singletons.Prelude.Bool
+import qualified Text.Pandoc                  as P
 
 data MarkdownType = MDPandoc
                   | MDStrict
@@ -95,6 +99,10 @@ _ROReadable = iso (\case ROReadable ro -> ro) ROReadable
 _ROUnreadable :: Iso' (ReaderOptions 'False) ()
 _ROUnreadable = iso (const ()) (const ROUnreadable)
 
+instance SingI r => Default (ReaderOptions r) where
+    def = case sing @Bool @r of
+            STrue  -> ROReadable def
+            SFalse -> ROUnreadable
 
 formatReader
     :: Format 'True w

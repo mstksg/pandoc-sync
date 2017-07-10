@@ -10,6 +10,8 @@
 module Text.Pandoc.Sync.File (
     SyncFileData(..)
   , SyncFile(..)
+  , sfSourcesSinks
+  , emptySyncFile
   , runSyncFile
   ) where
 
@@ -18,16 +20,15 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
+import           Data.Dependent.Sum
 import           Data.Foldable
 import           Data.Kind
 import           Data.Singletons
 import           Data.Singletons.Prelude
 import           Data.Time.Clock
-import           Data.Type.Conjunction
 import           Data.Witherable
 import           System.Directory
 import           Text.Pandoc.Sync.Format
-import           Type.Class.Higher
 import qualified Data.ByteString.Lazy       as B
 import qualified Data.Map                   as M
 import qualified Data.OrdPSQ                as PS
@@ -62,19 +63,22 @@ data SyncFile = SyncFile
 
 makeLenses ''SyncFile
 
-sfSourcesSinks :: Lens' SyncFile (M.Map FilePath (Some (Sing :&: SyncFileData)))
+emptySyncFile :: SyncFile
+emptySyncFile = SyncFile M.empty M.empty Nothing
+
+sfSourcesSinks :: Lens' SyncFile (M.Map FilePath (DSum Sing SyncFileData))
 sfSourcesSinks f s0 = f bigMap <&> \bm ->
     let (newSources, newSinks) = M.mapEither breakUp bm
     in  s0 & sfSources .~ newSources
            & sfSinks   .~ newSinks
   where
     bigMap = M.union (g <$> (s0 ^. sfSources)) (g <$> (s0 ^. sfSinks))
-    g :: SingI r => SyncFileData r -> Some (Sing :&: SyncFileData)
-    g sfd = Some (sing :&: sfd)
-    breakUp :: Some (Sing :&: SyncFileData) -> Either (SyncFileData 'True) (SyncFileData 'False)
+    g :: SingI r => SyncFileData r -> DSum Sing SyncFileData
+    g sfd = sing :=> sfd
+    breakUp :: DSum Sing SyncFileData -> Either (SyncFileData 'True) (SyncFileData 'False)
     breakUp = \case
-      Some (STrue :&: sfd)  -> Left sfd
-      Some (SFalse :&: sfd) -> Right sfd
+      STrue  :=> sfd -> Left sfd
+      SFalse :=> sfd -> Right sfd
 
 -- discoverSyncFile :: SyncFile -> IO SyncFile
 -- discoverSyncFile s0 = do
@@ -119,9 +123,9 @@ runSyncFile s0 = do
         itraverse_ backupError updatesE
         itraverse_ backupLater $ queueToMap (flip const) laterUpdates
         s0 & sfLastUpdate                  .~ Just (syncTime, pd)
-           & sfSourcesSinks . itraversed %%@~ \fp' (Some (s :&: sfd)) -> do
+           & sfSourcesSinks . itraversed %%@~ \fp' (s :=> sfd) -> do
                sfd' <- updateSource syncTime (fp == fp') pd fp' sfd
-               return $ Some (s :&: sfd')
+               return $ s :=> sfd'
   where
     backupError :: FilePath -> P.PandocError -> IO ()
     backupError _ _ = return ()

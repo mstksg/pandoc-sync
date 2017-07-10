@@ -20,15 +20,13 @@ import           Data.Default
 import           Data.Dependent.Sum
 import           Data.Monoid
 import           Data.Singletons
-import           Data.Witherable
-import           GHC.Generics            (Generic)
+import           GHC.Generics          (Generic)
 import           System.Directory
 import           System.FilePath
-import           Text.Pandoc.Sync.File   as PS
-import           Text.Pandoc.Sync.Format as PS
-import qualified Data.Binary             as Bi
-import qualified Data.Map                as M
-import qualified Data.Set                as S
+import           Text.Pandoc.Sync.File as PS
+import qualified Data.Binary           as Bi
+import qualified Data.Map              as M
+import qualified Data.Set              as S
 
 type FileExt = String
 
@@ -45,7 +43,8 @@ makeLenses ''FileDiscover
 instance Bi.Binary FileDiscover
 
 data SyncConfig = SC { _scDiscoverMode    :: DiscoverMode
-                     , _scDiscoverFormats :: M.Map FileExt WriterFormat
+                     , _scDiscoverFormats :: M.Map FileExt (Writer FormatOptions)
+                     , _scCache           :: FilePath
                      }
 
 makeLenses ''SyncConfig
@@ -78,9 +77,13 @@ initSync sc = Sync <$>
                                              (M.fromSet (const ()) exs)
                                              (sc ^. scDiscoverFormats)
       where
-        go :: WriterFormat -> DSum Sing SyncFileData
+        go :: Writer FormatOptions -> DSum Sing SyncFileData
         go = \case
-          WriterFormat ft -> sing :=> SyncFileData ft def def Nothing
+          Writer fo -> sing :=>
+            SyncFileData (fo ^. foFormat)
+                         (fo ^. foReaderOpts)
+                         (fo ^. foWriterOpts . _Has)
+                         Nothing
     mergeSF :: SyncFile -> SyncFile -> SyncFile
     mergeSF s1 s2 = s1 & sfSourcesSinks %~ (`M.union` (s2 ^. sfSourcesSinks))
 
@@ -97,7 +100,7 @@ runSync :: Sync -> IO Sync
 runSync = traverseOf (syncFiles . traverse) runSyncFile
 
 discoverAll
-    :: M.Map FileExt WriterFormat
+    :: M.Map FileExt (Writer FormatOptions)
     -> FilePath
     -> IO (M.Map FileDiscover (S.Set FileExt))
 discoverAll wfs = go

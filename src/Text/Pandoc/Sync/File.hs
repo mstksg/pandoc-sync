@@ -17,9 +17,6 @@ module Text.Pandoc.Sync.File (
   , emptySyncFile
   , runSyncFile
   , module PS
-  , HasIf
-  , _Has
-  , _Hasn't
   ) where
 
 import           Control.Lens hiding        ((<.>))
@@ -28,7 +25,6 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
 import           Data.Binary.Orphans        ()
-import           Data.Default
 import           Data.Dependent.Sum
 import           Data.Foldable
 import           Data.Kind
@@ -50,29 +46,6 @@ import qualified Text.Pandoc.Readers.LaTeX  as P
 import qualified Text.Pandoc.SelfContained  as P
 import qualified Text.Pandoc.Shared         as P
 import qualified Text.Pandoc.UTF8           as UTF8
-
-data HasIf :: Bool -> Type -> Type where
-    Has    :: a -> HasIf 'True a
-    Hasn't :: HasIf 'False a
-
-_Has :: Iso' (HasIf 'True a) a
-_Has = iso (\case Has x -> x) Has
-
-_Hasn't :: Iso' (HasIf 'False a) ()
-_Hasn't = iso (const ()) (const Hasn't)
-
-instance (SingI b, Bi.Binary a) => Bi.Binary (HasIf b a) where
-    get = case sing @_ @b of
-      STrue  -> Has <$> Bi.get
-      SFalse -> return Hasn't
-    put = \case
-      Has x  -> Bi.put x
-      Hasn't -> return ()
-
-instance (SingI b, Default a) => Default (HasIf b a) where
-    def = case sing @_ @b of
-      STrue  -> Has def
-      SFalse -> Hasn't
 
 data SyncFileData :: Bool -> Type where
     SyncFileData :: { _sfdFormat     :: Format r 'True

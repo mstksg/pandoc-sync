@@ -1,26 +1,34 @@
-{-# LANGUAGE DeriveGeneric             #-}
-{-# LANGUAGE GADTs                     #-}
-{-# LANGUAGE KindSignatures            #-}
-{-# LANGUAGE LambdaCase                #-}
-{-# LANGUAGE ScopedTypeVariables       #-}
-{-# LANGUAGE StandaloneDeriving        #-}
-{-# LANGUAGE TypeApplications          #-}
-{-# LANGUAGE TypeInType                #-}
-{-# OPTIONS_GHC -fno-warn-warn-orphans #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE KindSignatures      #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving  #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeInType          #-}
 
 module Text.Pandoc.Sync.Format (
     MarkdownType(..)
   , SlideShowType(..)
   , Format(..)
-  , WriterFormat(..)
+  , Writer(..)
   , ReaderOptions(..)
   , readerOptions
   , WriterOptions(..)
   , writerOptions
   , formatReader
   , formatWriter
+  , FormatOptions
+  , foFormat
+  , foWriterOpts
+  , foReaderOpts
   , readerString
   , writerString
+  , HasIf
+  , _Has
+  , _Hasn't
+  , _HasMaybe
   ) where
 
 import           Control.Lens
@@ -31,9 +39,7 @@ import           Data.Singletons
 import           Data.Singletons.Prelude.Bool
 import           GHC.Generics                 (Generic)
 import qualified Data.Binary                  as Bi
-import qualified Skylighting.Types            as Sky
 import qualified Text.Pandoc                  as P
-import qualified Text.Pandoc.MediaBag         as P
 
 data MarkdownType = MDPandoc
                   | MDStrict
@@ -94,11 +100,43 @@ instance Bi.Binary (Format r w) where
 -- data ReaderFormat :: Type where
 --     ReaderFormat :: SingI w => Format 'True w -> ReaderFormat
 
-data WriterFormat :: Type where
-    WriterFormat :: SingI r => Format r 'True -> WriterFormat
+data Writer :: (Bool -> Bool -> Type) -> Type where
+    Writer :: SingI r => f r 'True -> Writer f
 
-data SomeFormat :: Type where
-    SomeFormat :: Sing r -> Sing w -> Format r w -> SomeFormat
+-- data SomeFormat :: Type where
+--     SomeFormat :: Sing r -> Sing w -> Format r w -> SomeFormat
+
+data HasIf :: Bool -> Type -> Type where
+    Has    :: a -> HasIf 'True a
+    Hasn't :: HasIf 'False a
+
+deriving instance Show a => Show (HasIf b a)
+
+_Has :: Iso' (HasIf 'True a) a
+_Has = iso (\case Has x -> x) Has
+
+_Hasn't :: Iso' (HasIf 'False a) ()
+_Hasn't = iso (const ()) (const Hasn't)
+
+_HasMaybe :: forall r a b. SingI r => Prism (HasIf r a) (HasIf r b) a b
+_HasMaybe = prism (case sing @_ @r of
+                     STrue -> Has
+                     SFalse -> const Hasn't
+                  )
+                  (\case Has x -> Right x; Hasn't -> Left Hasn't)
+
+instance (SingI b, Bi.Binary a) => Bi.Binary (HasIf b a) where
+    get = case sing @_ @b of
+      STrue  -> Has <$> Bi.get
+      SFalse -> return Hasn't
+    put = \case
+      Has x  -> Bi.put x
+      Hasn't -> return ()
+
+instance (SingI b, Default a) => Default (HasIf b a) where
+    def = case sing @_ @b of
+      STrue  -> Has def
+      SFalse -> Hasn't
 
 data ReaderOptions = RO
     deriving (Show, Eq, Ord, Generic)
@@ -114,6 +152,17 @@ instance Default ReaderOptions where
 
 instance Default WriterOptions where
     def = WO
+
+data FormatOptions :: Bool -> Bool -> Type where
+    FormatOptions :: { _foFormat     :: Format r w
+                     , _foReaderOpts :: HasIf r ReaderOptions
+                     , _foWriterOpts :: HasIf w WriterOptions
+                     }
+               -> FormatOptions r w
+  deriving (Show, Generic)
+
+makeLenses ''FormatOptions
+
 
 readerOptions :: ReaderOptions -> P.ReaderOptions
 readerOptions _ = def

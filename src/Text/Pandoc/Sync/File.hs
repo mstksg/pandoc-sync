@@ -1,14 +1,15 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE KindSignatures      #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TupleSections       #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE ViewPatterns        #-}
+{-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE DeriveGeneric        #-}
+{-# LANGUAGE GADTs                #-}
+{-# LANGUAGE KindSignatures       #-}
+{-# LANGUAGE LambdaCase           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TupleSections        #-}
+{-# LANGUAGE TypeApplications     #-}
+{-# LANGUAGE TypeOperators        #-}
+{-# LANGUAGE ViewPatterns         #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Text.Pandoc.Sync.File (
     SyncFileData(..)
@@ -20,36 +21,36 @@ module Text.Pandoc.Sync.File (
   ) where
 
 import           Control.Exception
-import           Control.Lens hiding        ((<.>))
+import           Control.Lens hiding          ((<.>))
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
-import           Data.Binary.Orphans        ()
+import           Data.Binary.Orphans          ()
 import           Data.Dependent.Sum
 import           Data.Foldable
 import           Data.Kind
 import           Data.Singletons
-import           Data.Singletons.Prelude
+import           Data.Singletons.Prelude.Bool
 import           Data.Time.Clock
 import           Data.Witherable
-import           GHC.Generics               (Generic)
+import           GHC.Generics                 (Generic)
 import           System.Directory
 import           System.FilePath
 import           System.IO.Error
-import           Text.Pandoc.Sync.Format    as PS
+import           Text.Pandoc.Sync.Format      as PS
 import           Text.Printf
-import qualified Data.Binary                as Bi
-import qualified Data.ByteString.Lazy       as B
-import qualified Data.Map                   as M
-import qualified Data.OrdPSQ                as PS
-import qualified Text.Pandoc                as P
-import qualified Text.Pandoc.MediaBag       as P
-import qualified Text.Pandoc.PDF            as P
-import qualified Text.Pandoc.Readers.LaTeX  as P
-import qualified Text.Pandoc.SelfContained  as P
-import qualified Text.Pandoc.Shared         as P
-import qualified Text.Pandoc.UTF8           as UTF8
+import qualified Data.Binary                  as Bi
+import qualified Data.ByteString.Lazy         as B
+import qualified Data.Map                     as M
+import qualified Data.OrdPSQ                  as PS
+import qualified Text.Pandoc                  as P
+import qualified Text.Pandoc.MediaBag         as P
+import qualified Text.Pandoc.PDF              as P
+import qualified Text.Pandoc.Readers.LaTeX    as P
+import qualified Text.Pandoc.SelfContained    as P
+import qualified Text.Pandoc.Shared           as P
+import qualified Text.Pandoc.UTF8             as UTF8
 
 data SyncFileData :: Bool -> Type where
     SyncFileData :: { _sfdFormat     :: Format r 'True
@@ -145,12 +146,19 @@ runSyncFile s0 = do
       case sfd ^. sfdLastSync of
         Nothing  -> return ()
         Just mt0 -> guard $ mt0 < modTime
-      liftIO $ do
-        printf "Found updated source: %s (%s -> %s)\n" fp (show (sfd ^. sfdLastSync)) (show modTime)
-        fmap ((sfd ^. sfdLastSync,) . fst) <$>
-          readPandoc (sfd ^. sfdFormat)
-                     (sfd ^. sfdReaderOpts . _Has . to readerOptions)
-                     fp
+      liftIO $ printf "Found updated source: %s (%s -> %s)\n"
+                      fp
+                      (show (sfd ^. sfdLastSync))
+                      (show modTime)
+      epd <- liftIO $ readPandoc (sfd ^. sfdFormat)
+                                 (sfd ^. sfdReaderOpts . _Has . to readerOptions)
+                                 fp
+      MaybeT . return $ case epd of
+        Right (newPd, _) -> case s0 ^? sfLastUpdate . _Just . _2 of
+          Just oldPd | oldPd == newPd
+                    -> Nothing
+          _         -> Just $ Right (sfd ^. sfdLastSync, newPd)
+        Left e      -> Just $ Left e
     let sortedUpdates = mapToQueue id updates
     case PS.minView sortedUpdates of
       Nothing -> do
@@ -278,6 +286,3 @@ readPandoc ft ro fp = case formatReader ft of
     handleIncludes = case ft of
       FLaTeX -> P.handleIncludes
       _      -> return . Right
-
-
-

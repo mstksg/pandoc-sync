@@ -11,10 +11,14 @@ sc = SC (DMParallelTree ext)
         ".pandoc-sync"
   where
     ext = [("markdown", "md"  )
-          ,("plain"   , "txt")
+          ,("plain"   , "txt" )
+          ,("html"    , "html")
+          ,("pdf"     , "pdf" )
           ]
-    fms = [("md" , Writer $ FormatOptions (FMarkdown MDPandoc) (Has RO) (Has WO))
-          ,("txt", Writer $ FormatOptions FPlain               (Hasn't) (Has WO))
+    fms = [("md"  , Writer $ FormatOptions (FMarkdown MDPandoc) (Has RO) (Has WO))
+          ,("txt" , Writer $ FormatOptions FPlain               Hasn't   (Has WO))
+          ,("html", Writer $ FormatOptions (FHTML True)         (Has RO) (Has WO))
+          ,("pdf" , Writer $ FormatOptions (FPDF PTLaTeX)       Hasn't   (Has WO))
           ]
 
 main :: IO ()

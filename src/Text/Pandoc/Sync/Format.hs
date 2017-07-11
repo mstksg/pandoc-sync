@@ -13,6 +13,7 @@
 module Text.Pandoc.Sync.Format (
     MarkdownType(..)
   , SlideShowType(..)
+  , PDFType(..)
   , Format(..)
   , Writer(..)
   , ReaderOptions(..)
@@ -23,6 +24,7 @@ module Text.Pandoc.Sync.Format (
   , formatWriter
   , FormatOptions(..)
   , foFormat
+  , pdfFormat
   , foWriterOpts
   , foReaderOpts
   , readerString
@@ -67,6 +69,14 @@ data SlideShowType = SSS5
 
 instance Bi.Binary SlideShowType
 
+data PDFType = PTLaTeX
+             | PTBeamer
+             | PTContext
+             | PTHTML5
+  deriving (Show, Generic)
+
+instance Bi.Binary PDFType
+
 data Format :: Bool -> Bool -> Type where
     FNative       :: Format 'True  'True
     FJSON         :: Format 'True  'True
@@ -100,6 +110,8 @@ data Format :: Bool -> Bool -> Type where
     FDokuWiki     :: Format 'False 'True
     FASCIIDoc     :: Format 'False 'True
     FTEI          :: Format 'False 'True
+    FPDF          :: PDFType
+                  -> Format 'False 'True
 
 deriving instance Show (Format r w)
 
@@ -169,6 +181,7 @@ instance Bi.Binary SomeFormat where
                             ,(25, return $ SomeFormat sing sing FDokuWiki     )
                             ,(26, return $ SomeFormat sing sing FASCIIDoc     )
                             ,(27, return $ SomeFormat sing sing FTEI          )
+                            ,(28, SomeFormat sing sing . FPDF <$> Bi.get      )
                             ]
     put (SomeFormat _ _ ft) = case ft of
       FNative       -> Bi.put @Int 0
@@ -199,6 +212,7 @@ instance Bi.Binary SomeFormat where
       FDokuWiki     -> Bi.put @Int 25
       FASCIIDoc     -> Bi.put @Int 26
       FTEI          -> Bi.put @Int 27
+      FPDF t        -> Bi.put @Int 28 *> Bi.put t
 
 instance Hashable SomeFormat where
     hashWithSalt s sf = s `hashWithSalt` Bi.encode sf
@@ -282,6 +296,13 @@ readerOptions _ = def
 writerOptions :: WriterOptions -> P.WriterOptions
 writerOptions _ = def
 
+pdfFormat :: PDFType -> Writer Format
+pdfFormat = \case
+    PTLaTeX   -> Writer FLaTeX
+    PTBeamer  -> Writer $ FSlideShow SSBeamer
+    PTContext -> Writer $ FContext
+    PTHTML5   -> Writer $ FHTML True
+
 formatReader
     :: Format 'True w
     -> P.Reader
@@ -360,6 +381,8 @@ writerString = \case
     FDokuWiki     -> "dokuwiki"
     FASCIIDoc     -> "asciidoc"
     FTEI          -> "tei"
+    -- TODO: is this right?
+    FPDF t        -> case pdfFormat t of Writer ft -> writerString ft
 
 -- formatString :: Format r w -> String
 -- formatString = \case

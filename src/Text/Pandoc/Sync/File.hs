@@ -190,15 +190,15 @@ runSyncFile s0 = do
           UTF8.writeFile fp                =<< f (sfd ^. sfdWriterOpts . to writerOptions) pd
         P.IOByteStringWriter f ->
           B.writeFile (UTF8.encodePath fp) =<< f (sfd ^. sfdWriterOpts . to writerOptions) pd
-        P.PureStringWriter f -> case pdfEngine (sfd ^. sfdFormat) of
-          -- wrong wrong wrong!  should only do it if pdf!
-          Just eng -> do
+        P.PureStringWriter f -> case sfd ^. sfdFormat of
+          FPDF pdft -> do
+            let eng = pdfEngine pdft
             -- TODO: handle lack of prog?
             -- Just mbPdfProg <- findExecutable eng
             res <- P.makePDF eng f (sfd ^. sfdWriterOpts . to writerOptions) pd
             -- TODO: handle bad res?
             traverse_ (B.writeFile (UTF8.encodePath fp)) res
-          Nothing -> do
+          _ -> do
               let res = f (sfd ^. sfdWriterOpts . to writerOptions) pd
               out <- if htmlFormat (sfd ^. sfdFormat)
                  then P.makeSelfContained (sfd ^. sfdWriterOpts . to writerOptions) res
@@ -246,14 +246,13 @@ queueToMap f = M.fromList . map g . PS.toList
 
 -- TODO: customizable latex engine
 pdfEngine
-    :: Format r w
-    -> Maybe String
+    :: PDFType
+    -> String
 pdfEngine = \case
-    FLaTeX              -> Just "pdflatex"
-    FSlideShow SSBeamer -> Just "pdflatex"
-    FContext            -> Just "context"
-    FHTML True          -> Just "wkhtmltopdf"
-    _                   -> Nothing
+    PTLaTeX   -> "pdflatex"
+    PTBeamer  -> "pdflatex"
+    PTContext -> "context"
+    PTHTML5   -> "wkhtmltopdf"
 
 htmlFormat
     :: Format r w

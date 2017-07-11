@@ -20,12 +20,11 @@ module Text.Pandoc.Sync (
   , module PS
   ) where
 
--- import           Data.Witherable
 import           Control.Exception
 import           Control.Lens
 import           Control.Monad
-import           Data.Default
 import           Data.Dependent.Sum
+import           Data.Hashable
 import           Data.List
 import           Data.Maybe
 import           Data.Monoid
@@ -46,6 +45,15 @@ data DiscoverMode = DMSameDir
                   | DMParallelTree (M.Map FilePath FileExt)
   deriving (Show, Eq, Ord, Generic)
 
+instance Bi.Binary DiscoverMode
+instance Hashable DiscoverMode where
+    hashWithSalt s = \case
+      DMSameDir         -> s `hashWithSalt` (0 :: Int)
+      DMParallelTree mp -> s `hashWithSalt` (1 :: Int)
+                             `hashWithSalt` M.toList mp
+
+      
+
 data FileDiscover = FD { _fdBaseDir      :: FilePath
                        , _fdFileName     :: String
                        }
@@ -60,10 +68,22 @@ data SyncConfig = SC { _scDiscoverMode    :: DiscoverMode
                      , _scRoot            :: FilePath
                      , _scCache           :: FilePath
                      }
+  deriving Generic
 
 makeLenses ''SyncConfig
 
-data Sync = Sync { _syncFiles :: M.Map FileDiscover SyncFile }
+instance Bi.Binary SyncConfig
+instance Hashable SyncConfig where
+    hashWithSalt s sc = s `hashWithSalt` (sc ^. scDiscoverMode)
+                          `hashWithSalt` (sc ^. scRoot)
+                          `hashWithSalt` (sc ^. scCache)
+                          `hashWithSalt` M.toList (sc ^. scDiscoverFormats)
+
+    
+
+data Sync = Sync { _syncFiles    :: M.Map FileDiscover SyncFile
+                 , _syncConfHash :: Int
+                 }
     deriving (Show, Generic)
 
 makeLenses ''Sync
@@ -73,11 +93,10 @@ instance Bi.Binary Sync
 initSync :: SyncConfig -> IO Sync
 initSync sc = do
     createDirectoryIfMissing True (sc ^. scRoot)
-    res <- Sync <$> case sc ^. scDiscoverMode of
+    res <- flip Sync (hash sc) <$> case sc ^. scDiscoverMode of
       DMSameDir          ->
         M.mapWithKey mkSF <$> discoverAll (sc ^. scDiscoverFormats) (sc ^. scRoot)
       DMParallelTree rts -> fmap (M.mapWithKey (fillParallel rts) . join traceShow . M.unionsWith mergeSF)
-      -- DMParallelTree rts -> fmap (join traceShow . M.unionsWith mergeSF)
                           . traverse (uncurry mkParallel)
                           . M.toList
                           $ rts
@@ -120,9 +139,6 @@ initSync sc = do
     mkSF :: FileDiscover -> S.Set FileExt -> SyncFile
     mkSF fd exs = emptySyncFile &
         sfSourcesSinks .~ M.mapKeys mkFileName extMap
-        -- M.intersectionWith (const go)
-        --                                      (M.fromSet (const ()) exs)
-        --                                      (sc ^. scDiscoverFormats)
       where
         extMap = M.intersectionWith (const go)
                                     (M.fromSet (const ()) exs)
@@ -159,16 +175,19 @@ runSync = traverseOf (syncFiles . traverse) runSyncFile
 
 loadSync :: SyncConfig -> IO Sync
 loadSync sc = do
-    s <- tryJust (guard . isDoesNotExistError) $ Bi.decodeFile (sc ^. scCache)
-    case s of
-      Left ()  -> initSync sc
-      Right s' -> discoverSync sc s'
-
--- caching :: SyncConfig -> (r -> IO Sync) -> r -> IO Sync
--- caching sc f x = do
---     s <- f x
---     Bi.encodeFile (sc ^. scCache) s
---     return s
+    es <- fmap join
+        . tryJust (guard . isDoesNotExistError)
+        . set (mapped . _Left) ()
+        $ Bi.decodeFileOrFail (sc ^. scCache)
+    case es of
+      Right s | s ^. syncConfHash == hash sc ->
+        discoverSync sc s
+              | otherwise                    -> do
+        putStrLn "Configuration changed"
+        removeFile (sc ^. scCache)
+        initSync sc
+      Left ()                                ->
+        initSync sc
 
 withSync :: SyncConfig -> (Sync -> IO (r, Sync)) -> IO r
 withSync sc f = do

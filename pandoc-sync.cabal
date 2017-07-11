@@ -27,6 +27,7 @@ library
                      , dependent-sum
                      , directory
                      , filepath
+                     , hashable
                      , lens
                      , pandoc
                      , psqueues

@@ -38,6 +38,7 @@ import           System.Directory
 import           System.FilePath
 import           System.IO.Error
 import           Text.Pandoc.Sync.Format    as PS
+import           Text.Printf
 import qualified Data.Binary                as Bi
 import qualified Data.ByteString.Lazy       as B
 import qualified Data.Map                   as M
@@ -67,11 +68,25 @@ data SyncFile = SyncFile
     { _sfSources    :: M.Map FilePath (SyncFileData 'True )
     , _sfSinks      :: M.Map FilePath (SyncFileData 'False)
     -- TODO: add back in P.Pandoc to lastupdate
-    , _sfLastUpdate :: Maybe UTCTime
+    , _sfLastUpdate :: Maybe (UTCTime, P.Pandoc)
     }
   deriving (Generic, Show)
 
 makeLenses ''SyncFile
+
+instance Bi.Binary P.Pandoc
+instance Bi.Binary P.Meta
+instance Bi.Binary P.MetaValue
+instance Bi.Binary P.Inline
+instance Bi.Binary P.QuoteType
+instance Bi.Binary P.Citation
+instance Bi.Binary P.CitationMode
+instance Bi.Binary P.MathType
+instance Bi.Binary P.Format
+instance Bi.Binary P.Block
+instance Bi.Binary P.ListNumberStyle
+instance Bi.Binary P.ListNumberDelim
+instance Bi.Binary P.Alignment
 
 instance Bi.Binary SyncFile
 
@@ -130,18 +145,27 @@ runSyncFile s0 = do
       case sfd ^. sfdLastSync of
         Nothing  -> return ()
         Just mt0 -> guard $ mt0 < modTime
-      liftIO . (fmap . fmap) ((sfd ^. sfdLastSync,) . fst) $
-        readPandoc (sfd ^. sfdFormat) (sfd ^. sfdReaderOpts . _Has . to readerOptions) fp
+      liftIO $ do
+        printf "Found updated source: %s (%s -> %s)\n" fp (show (sfd ^. sfdLastSync)) (show modTime)
+        fmap ((sfd ^. sfdLastSync,) . fst) <$>
+          readPandoc (sfd ^. sfdFormat)
+                     (sfd ^. sfdReaderOpts . _Has . to readerOptions)
+                     fp
     let sortedUpdates = mapToQueue id updates
     case PS.minView sortedUpdates of
       Nothing -> do
         putStrLn "No updates found"
-        return s0
+        case s0 ^? sfLastUpdate . _Just . _2 of
+          Nothing -> return s0
+          Just pd -> do
+            putStrLn "Updating sinks anyway"
+            s0 & sfSinks . itraversed %%@~ \fp' sfd ->
+              updateSource syncTime False pd fp' sfd
       Just (fp, _, pd, laterUpdates) -> do
         putStrLn "Updates found!"
         itraverse_ backupError updatesE
         itraverse_ backupLater $ queueToMap (flip const) laterUpdates
-        s0 & sfLastUpdate                  .~ Just syncTime
+        s0 & sfLastUpdate                  .~ Just (syncTime, pd)
            & sfSourcesSinks . itraversed %%@~ \fp' (s :=> sfd) -> do
                sfd' <- updateSource syncTime (fp == fp') pd fp' sfd
                return $ s :=> sfd'

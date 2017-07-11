@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric        #-}
+{-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE GADTs                #-}
 {-# LANGUAGE KindSignatures       #-}
 {-# LANGUAGE LambdaCase           #-}
@@ -34,6 +35,7 @@ module Text.Pandoc.Sync.Format (
 
 import           Control.Lens
 import           Data.Default
+import           Data.Hashable
 import           Data.Kind
 import           Data.Maybe
 import           Data.Singletons
@@ -109,8 +111,25 @@ instance (SingI r, SingI w) => Bi.Binary (Format r w) where
       return ft
     put = Bi.put . SomeFormat sing sing
 
+instance (SingI r, SingI w) => Hashable (Format r w) where
+    hashWithSalt s fm = s `hashWithSalt` Bi.encode fm
+
 data Writer :: (Bool -> Bool -> Type) -> Type where
     Writer :: SingI r => f r 'True -> Writer f
+
+instance Bi.Binary (Writer FormatOptions) where
+    get = do
+      r <- Bi.get @Bool
+      withSomeSing @_ @Bool r $ \(sr :: Sing r) -> withSingI sr $ do
+        Writer @_ @r <$> Bi.get
+    put = \case
+      Writer (fo :: FormatOptions r 'True) -> do
+        Bi.put (fromSing (sing @_ @r))
+        Bi.put fo
+
+instance Hashable (Writer FormatOptions) where
+    hashWithSalt s = \case
+      Writer fo -> s `hashWithSalt` fo
 
 data SomeFormat :: Type where
     SomeFormat :: Sing r -> Sing w -> Format r w -> SomeFormat
@@ -181,6 +200,9 @@ instance Bi.Binary SomeFormat where
       FASCIIDoc     -> Bi.put @Int 26
       FTEI          -> Bi.put @Int 27
 
+instance Hashable SomeFormat where
+    hashWithSalt s sf = s `hashWithSalt` Bi.encode sf
+
 data HasIf :: Bool -> Type -> Type where
     Has    :: a -> HasIf 'True a
     Hasn't :: HasIf 'False a
@@ -213,6 +235,12 @@ instance (SingI b, Default a) => Default (HasIf b a) where
       STrue  -> Has def
       SFalse -> Hasn't
 
+instance Hashable a => Hashable (HasIf b a) where
+    hashWithSalt s = \case
+      Has x  -> s `hashWithSalt` (0 :: Int)
+                  `hashWithSalt` x
+      Hasn't -> s `hashWithSalt` (1 :: Int)
+
 data ReaderOptions = RO
     deriving (Show, Eq, Ord, Generic)
 
@@ -228,6 +256,9 @@ instance Default ReaderOptions where
 instance Default WriterOptions where
     def = WO
 
+instance Hashable ReaderOptions
+instance Hashable WriterOptions
+
 data FormatOptions :: Bool -> Bool -> Type where
     FormatOptions :: { _foFormat     :: Format r w
                      , _foReaderOpts :: HasIf r ReaderOptions
@@ -238,6 +269,12 @@ data FormatOptions :: Bool -> Bool -> Type where
 
 makeLenses ''FormatOptions
 
+instance (SingI r, SingI w) => Bi.Binary (FormatOptions r w)
+
+instance (SingI r, SingI w) => Hashable (FormatOptions r w) where
+    hashWithSalt s fo = s `hashWithSalt` (fo ^. foFormat)
+                          `hashWithSalt` (fo ^. foReaderOpts)
+                          `hashWithSalt` (fo ^. foWriterOpts)
 
 readerOptions :: ReaderOptions -> P.ReaderOptions
 readerOptions _ = def

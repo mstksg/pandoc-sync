@@ -20,6 +20,7 @@ module Text.Pandoc.Sync (
   , module PS
   ) where
 
+-- import           Data.Witherable
 import           Control.Exception
 import           Control.Lens
 import           Control.Monad
@@ -29,6 +30,7 @@ import           Data.List
 import           Data.Maybe
 import           Data.Monoid
 import           Data.Singletons
+import           Debug.Trace
 import           GHC.Generics          (Generic)
 import           System.Directory
 import           System.FilePath
@@ -74,11 +76,12 @@ initSync sc = do
     res <- Sync <$> case sc ^. scDiscoverMode of
       DMSameDir          ->
         M.mapWithKey mkSF <$> discoverAll (sc ^. scDiscoverFormats) (sc ^. scRoot)
-      DMParallelTree rts -> fmap (M.unionsWith mergeSF)
+      DMParallelTree rts -> fmap (M.mapWithKey (fillParallel rts) . join traceShow . M.unionsWith mergeSF)
+      -- DMParallelTree rts -> fmap (join traceShow . M.unionsWith mergeSF)
                           . traverse (uncurry mkParallel)
                           . M.toList
                           $ rts
-    print $ res
+    print res
     return res
   where
     mkParallel :: FilePath -> FileExt -> IO (M.Map FileDiscover SyncFile)
@@ -87,8 +90,33 @@ initSync sc = do
       Nothing -> return M.empty
       Just wf ->
         let fullRt = sc ^. scRoot </> rt
-        in  M.mapWithKey mkSF -- . M.mapKeys (over fdFileName (fromJust . stripPrefix fullRt))
-              <$> discoverAll (M.singleton ex wf) fullRt
+        in  do res <- over (traverse . sfSourcesSinks . mapKeys) (fullRt </>)
+                    . M.mapWithKey mkSF
+                    . over (mapKeys . fdBaseDir) (fromJust' (stripPrefix fullRt))
+                    <$> discoverAll (M.singleton ex wf) fullRt
+               putStrLn "Making parallel:"
+               putStrLn fullRt
+               print res
+               return res
+    fillParallel :: M.Map FilePath FileExt -> FileDiscover -> SyncFile -> SyncFile
+    fillParallel rts fd = over sfSourcesSinks (`M.union` filled)
+      where
+        filled = M.fromList
+               . mapMaybe (uncurry go)
+               . M.toList
+               $ rts
+        go :: FilePath -> FileExt -> Maybe (FilePath, DSum Sing SyncFileData)
+        go rt ex = sc ^? scDiscoverFormats
+                       . ix ex
+                       . to (\case Writer fo ->
+                                    let sfd = sing :=> SyncFileData (fo ^. foFormat)
+                                                  (fo ^. foReaderOpts)
+                                                  (fo ^. foWriterOpts . _Has)
+                                                  Nothing
+                                    in  (fullPath, sfd)
+                            )
+          where
+            fullPath = sc ^. scRoot </> rt </> fd ^. fdBaseDir </> fd ^. fdFileName -<.> ex
     mkSF :: FileDiscover -> S.Set FileExt -> SyncFile
     mkSF fd exs = emptySyncFile &
         sfSourcesSinks .~ M.mapKeys mkFileName extMap
@@ -110,6 +138,12 @@ initSync sc = do
                          Nothing
     mergeSF :: SyncFile -> SyncFile -> SyncFile
     mergeSF s1 s2 = s1 & sfSourcesSinks %~ (`M.union` (s2 ^. sfSourcesSinks))
+
+
+fromJust' :: Show a => (a -> Maybe b) -> a -> b
+fromJust' f x = case f x of
+                  Nothing -> error $ "fromJust called from applying " ++ show x
+                  Just y  -> y
 
 addSync :: Sync -> Sync -> Sync
 addSync s0 s1 = s0 & syncFiles %~ M.unionWith go (s1 ^. syncFiles)

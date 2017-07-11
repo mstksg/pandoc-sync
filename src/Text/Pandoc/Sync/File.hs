@@ -19,6 +19,7 @@ module Text.Pandoc.Sync.File (
   , module PS
   ) where
 
+import           Control.Exception
 import           Control.Lens hiding        ((<.>))
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -35,6 +36,7 @@ import           Data.Witherable
 import           GHC.Generics               (Generic)
 import           System.Directory
 import           System.FilePath
+import           System.IO.Error
 import           Text.Pandoc.Sync.Format    as PS
 import qualified Data.Binary                as Bi
 import qualified Data.ByteString.Lazy       as B
@@ -119,8 +121,15 @@ runSyncFile s0 = do
     syncTime <- getCurrentTime
     (updatesE, updates) <- fmap (M.mapEither id . catMaybes)
              . ifor (s0 ^. sfSources) $ \fp sfd -> runMaybeT $ do
-      modTime <- liftIO $ getModificationTime fp
-      guard $ anyOf (sfdLastSync . _Just) (< modTime) sfd
+      modTime <- MaybeT
+               . liftIO
+               . fmap (either (const Nothing) Just)
+               . tryJust (guard . isDoesNotExistError)
+               $ getModificationTime fp
+    -- s <- tryJust (guard . isDoesNotExistError) $ Bi.decodeFile (sc ^. scCache)
+      case sfd ^. sfdLastSync of
+        Nothing  -> return ()
+        Just mt0 -> guard $ mt0 < modTime
       liftIO . (fmap . fmap) ((sfd ^. sfdLastSync,) . fst) $
         readPandoc (sfd ^. sfdFormat) (sfd ^. sfdReaderOpts . _Has . to readerOptions) fp
     let sortedUpdates = mapToQueue id updates

@@ -11,13 +11,12 @@ sc = SC (DMParallelTree ext)
         ".pandoc-sync"
   where
     ext = [("markdown", "md"  )
-          ,("web"     , "html")
+          ,("plain"   , "txt")
           ]
-    fms = [("md"  , Writer $ FormatOptions (FMarkdown MDPandoc) (Has RO) (Has WO))
-          ,("html", Writer $ FormatOptions (FHTML True        ) (Has RO) (Has WO))
+    fms = [("md" , Writer $ FormatOptions (FMarkdown MDPandoc) (Has RO) (Has WO))
+          ,("txt", Writer $ FormatOptions FPlain               (Hasn't) (Has WO))
           ]
 
-                     -- , _scDiscoverFormats :: M.Map FileExt (Writer FormatOptions)
 main :: IO ()
 main = withSync_ sc runSync
 

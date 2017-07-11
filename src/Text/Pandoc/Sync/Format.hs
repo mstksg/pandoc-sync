@@ -1,12 +1,13 @@
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE KindSignatures      #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving  #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE TypeInType          #-}
+{-# LANGUAGE DeriveGeneric        #-}
+{-# LANGUAGE GADTs                #-}
+{-# LANGUAGE KindSignatures       #-}
+{-# LANGUAGE LambdaCase           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE StandaloneDeriving   #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TypeApplications     #-}
+{-# LANGUAGE TypeInType           #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Text.Pandoc.Sync.Format (
     MarkdownType(..)
@@ -19,13 +20,13 @@ module Text.Pandoc.Sync.Format (
   , writerOptions
   , formatReader
   , formatWriter
-  , FormatOptions
+  , FormatOptions(..)
   , foFormat
   , foWriterOpts
   , foReaderOpts
   , readerString
   , writerString
-  , HasIf
+  , HasIf(..)
   , _Has
   , _Hasn't
   , _HasMaybe
@@ -37,8 +38,11 @@ import           Data.Kind
 import           Data.Maybe
 import           Data.Singletons
 import           Data.Singletons.Prelude.Bool
+import           Data.Type.Equality
 import           GHC.Generics                 (Generic)
 import qualified Data.Binary                  as Bi
+import qualified Data.IntMap                  as IM
+import qualified Data.Singletons.Decide       as Si
 import qualified Text.Pandoc                  as P
 
 data MarkdownType = MDPandoc
@@ -47,7 +51,9 @@ data MarkdownType = MDPandoc
                   | MDGithub
                   | MDMulti
                   | MDCommon
-  deriving Show
+  deriving (Show, Generic)
+
+instance Bi.Binary MarkdownType
 
 data SlideShowType = SSS5
                    | SSSlidy
@@ -55,7 +61,9 @@ data SlideShowType = SSS5
                    | SSDZSlides
                    | SSRevealJS
                    | SSBeamer
-  deriving Show
+  deriving (Show, Generic)
+
+instance Bi.Binary SlideShowType
 
 data Format :: Bool -> Bool -> Type where
     FNative       :: Format 'True  'True
@@ -93,18 +101,85 @@ data Format :: Bool -> Bool -> Type where
 
 deriving instance Show (Format r w)
 
-instance Bi.Binary (Format r w) where
-    get = undefined
-    put = undefined
-
--- data ReaderFormat :: Type where
---     ReaderFormat :: SingI w => Format 'True w -> ReaderFormat
+instance (SingI r, SingI w) => Bi.Binary (Format r w) where
+    get = do
+      SomeFormat r w ft <- Bi.get
+      Si.Proved Refl <- return $ r Si.%~ (sing @_ @r)
+      Si.Proved Refl <- return $ w Si.%~ (sing @_ @w)
+      return ft
+    put = Bi.put . SomeFormat sing sing
 
 data Writer :: (Bool -> Bool -> Type) -> Type where
     Writer :: SingI r => f r 'True -> Writer f
 
--- data SomeFormat :: Type where
---     SomeFormat :: Sing r -> Sing w -> Format r w -> SomeFormat
+data SomeFormat :: Type where
+    SomeFormat :: Sing r -> Sing w -> Format r w -> SomeFormat
+
+instance Bi.Binary P.EPUBVersion
+
+instance Bi.Binary SomeFormat where
+    get = do
+        i <- Bi.get
+        fromMaybe (error "Corrupted SomeFormat") $ IM.lookup i ftmap
+      where
+        ftmap = IM.fromList [(0, return $ SomeFormat sing sing FNative        )
+                            ,(1, return $ SomeFormat sing sing FJSON          )
+                            ,(2, SomeFormat sing sing . FMarkdown <$> Bi.get  )
+                            ,(3, return $ SomeFormat sing sing FRST           )
+                            ,(4, return $ SomeFormat sing sing FMediaWiki     )
+                            ,(5, return $ SomeFormat sing sing FDocBook       )
+                            ,(6, return $ SomeFormat sing sing FOPML          )
+                            ,(7, return $ SomeFormat sing sing FOrg           )
+                            ,(8, return $ SomeFormat sing sing FTextile       )
+                            ,(9, SomeFormat sing sing . FHTML <$> Bi.get      )
+                            ,(10, return $ SomeFormat sing sing FLaTeX        )
+                            ,(11, return $ SomeFormat sing sing FHaddock      )
+                            ,(12, return $ SomeFormat sing sing FTWiki        )
+                            ,(13, return $ SomeFormat sing sing FDocX         )
+                            ,(14, return $ SomeFormat sing sing FODT          )
+                            ,(15, return $ SomeFormat sing sing FT2T          )
+                            ,(16, SomeFormat sing sing . FEPub <$> Bi.get     )
+                            ,(17, return $ SomeFormat sing sing FFictionBook2 )
+                            ,(18, return $ SomeFormat sing sing FICML         )
+                            ,(19, SomeFormat sing sing . FSlideShow <$> Bi.get)
+                            ,(20, return $ SomeFormat sing sing FOpenDocument )
+                            ,(21, return $ SomeFormat sing sing FContext      )
+                            ,(22, return $ SomeFormat sing sing FTexinfo      )
+                            ,(23, return $ SomeFormat sing sing FMan          )
+                            ,(24, return $ SomeFormat sing sing FPlain        )
+                            ,(25, return $ SomeFormat sing sing FDokuWiki     )
+                            ,(26, return $ SomeFormat sing sing FASCIIDoc     )
+                            ,(27, return $ SomeFormat sing sing FTEI          )
+                            ]
+    put (SomeFormat _ _ ft) = case ft of
+      FNative       -> Bi.put @Int 0
+      FJSON         -> Bi.put @Int 1
+      FMarkdown mt  -> Bi.put @Int 2 *> Bi.put mt
+      FRST          -> Bi.put @Int 3
+      FMediaWiki    -> Bi.put @Int 4
+      FDocBook      -> Bi.put @Int 5
+      FOPML         -> Bi.put @Int 6
+      FOrg          -> Bi.put @Int 7
+      FTextile      -> Bi.put @Int 8
+      FHTML five    -> Bi.put @Int 9 *> Bi.put five
+      FLaTeX        -> Bi.put @Int 10
+      FHaddock      -> Bi.put @Int 11
+      FTWiki        -> Bi.put @Int 12
+      FDocX         -> Bi.put @Int 13
+      FODT          -> Bi.put @Int 14
+      FT2T          -> Bi.put @Int 15
+      FEPub v       -> Bi.put @Int 16 *> Bi.put v
+      FFictionBook2 -> Bi.put @Int 17
+      FICML         -> Bi.put @Int 18
+      FSlideShow t  -> Bi.put @Int 19 *> Bi.put t
+      FOpenDocument -> Bi.put @Int 20
+      FContext      -> Bi.put @Int 21
+      FTexinfo      -> Bi.put @Int 22
+      FMan          -> Bi.put @Int 23
+      FPlain        -> Bi.put @Int 24
+      FDokuWiki     -> Bi.put @Int 25
+      FASCIIDoc     -> Bi.put @Int 26
+      FTEI          -> Bi.put @Int 27
 
 data HasIf :: Bool -> Type -> Type where
     Has    :: a -> HasIf 'True a
@@ -173,12 +248,14 @@ writerOptions _ = def
 formatReader
     :: Format 'True w
     -> P.Reader
-formatReader = fromJust . (`lookup` P.readers) . readerString
+formatReader = fromMaybe (error "invalid reader string?")
+             . (`lookup` P.readers) . readerString
 
 formatWriter
     :: Format r 'True
     -> P.Writer
-formatWriter = fromJust . (`lookup` P.writers) . writerString
+formatWriter = fromMaybe (error "invalid writer string?")
+             . (`lookup` P.writers) . writerString
 
 readerString :: Format 'True w -> String
 readerString = \case

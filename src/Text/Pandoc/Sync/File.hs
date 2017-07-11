@@ -34,6 +34,7 @@ import           Data.Time.Clock
 import           Data.Witherable
 import           GHC.Generics               (Generic)
 import           System.Directory
+import           System.FilePath
 import           Text.Pandoc.Sync.Format    as PS
 import qualified Data.Binary                as Bi
 import qualified Data.ByteString.Lazy       as B
@@ -54,7 +55,7 @@ data SyncFileData :: Bool -> Type where
                     , _sfdLastSync   :: Maybe UTCTime
                     }
                  -> SyncFileData r
-  deriving (Generic)
+  deriving (Generic, Show)
 
 makeLenses ''SyncFileData
 
@@ -66,7 +67,7 @@ data SyncFile = SyncFile
     -- TODO: add back in P.Pandoc to lastupdate
     , _sfLastUpdate :: Maybe UTCTime
     }
-  deriving (Generic)
+  deriving (Generic, Show)
 
 makeLenses ''SyncFile
 
@@ -142,12 +143,14 @@ runSyncFile s0 = do
     backupLater _ _ = return ()
     updateSource :: UTCTime -> Bool -> P.Pandoc -> FilePath -> SyncFileData r -> IO (SyncFileData r)
     updateSource st skipWrite pd fp sfd = do
+      createDirectoryIfMissing True (takeDirectory fp)
       unless skipWrite $ case formatWriter (sfd ^. sfdFormat) of
         P.IOStringWriter f ->
           UTF8.writeFile fp                =<< f (sfd ^. sfdWriterOpts . to writerOptions) pd
         P.IOByteStringWriter f ->
           B.writeFile (UTF8.encodePath fp) =<< f (sfd ^. sfdWriterOpts . to writerOptions) pd
         P.PureStringWriter f -> case pdfEngine (sfd ^. sfdFormat) of
+          -- wrong wrong wrong!  should only do it if pdf!
           Just eng -> do
             -- TODO: handle lack of prog?
             -- Just mbPdfProg <- findExecutable eng

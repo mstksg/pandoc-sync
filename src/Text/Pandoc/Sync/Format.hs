@@ -258,6 +258,7 @@ instance Hashable a => Hashable (HasIf b a) where
 data ReaderOptions = RO
     deriving (Show, Eq, Ord, Generic)
 
+-- data WriterOptions = WO { _woStandalone :: Bool }
 data WriterOptions = WO
     deriving (Show, Eq, Ord, Generic)
 
@@ -293,8 +294,8 @@ instance (SingI r, SingI w) => Hashable (FormatOptions r w) where
 readerOptions :: ReaderOptions -> P.ReaderOptions
 readerOptions _ = def
 
-writerOptions :: WriterOptions -> P.WriterOptions
-writerOptions _ = def
+writerOptions :: Format r w -> WriterOptions -> P.WriterOptions
+writerOptions _ _ = def
 
 pdfFormat :: PDFType -> Writer Format
 pdfFormat = \case

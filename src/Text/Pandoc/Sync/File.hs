@@ -28,7 +28,6 @@ import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
 import           Data.Binary.Orphans          ()
 import           Data.Dependent.Sum
-import           Data.Foldable
 import           Data.Kind
 import           Data.Singletons
 import           Data.Singletons.Prelude.Bool
@@ -44,6 +43,8 @@ import qualified Data.Binary                  as Bi
 import qualified Data.ByteString.Lazy         as B
 import qualified Data.Map                     as M
 import qualified Data.OrdPSQ                  as PS
+import qualified Data.Text.Lazy.IO            as TL
+import qualified Data.Text.Lazy.Encoding      as TL
 import qualified Text.Pandoc                  as P
 import qualified Text.Pandoc.MediaBag         as P
 import qualified Text.Pandoc.PDF              as P
@@ -62,6 +63,9 @@ data SyncFileData :: Bool -> Type where
   deriving (Generic, Show)
 
 makeLenses ''SyncFileData
+
+sfdWO :: SyncFileData r -> P.WriterOptions
+sfdWO sfd = writerOptions (sfd ^. sfdFormat) (sfd ^. sfdWriterOpts)
 
 instance SingI r => Bi.Binary (SyncFileData r)
 
@@ -187,21 +191,29 @@ runSyncFile s0 = do
       createDirectoryIfMissing True (takeDirectory fp)
       unless skipWrite $ case formatWriter (sfd ^. sfdFormat) of
         P.IOStringWriter f ->
-          UTF8.writeFile fp                =<< f (sfd ^. sfdWriterOpts . to writerOptions) pd
+          UTF8.writeFile fp                =<< f (sfdWO sfd) pd
         P.IOByteStringWriter f ->
-          B.writeFile (UTF8.encodePath fp) =<< f (sfd ^. sfdWriterOpts . to writerOptions) pd
+          B.writeFile (UTF8.encodePath fp) =<< f (sfdWO sfd) pd
         P.PureStringWriter f -> case sfd ^. sfdFormat of
           FPDF pdft -> do
             let eng = pdfEngine pdft
             -- TODO: handle lack of prog?
-            -- Just mbPdfProg <- findExecutable eng
-            res <- P.makePDF eng f (sfd ^. sfdWriterOpts . to writerOptions) pd
+            mbPdfProg <- findExecutable eng
+            print $ has _Just mbPdfProg
+            let wo = sfdWO sfd
+            res <- P.makePDF eng f wo pd
+            putStrLn $ "hey pdf! " ++ fp
             -- TODO: handle bad res?
-            traverse_ (B.writeFile (UTF8.encodePath fp)) res
+            case res of
+              Right res' -> B.writeFile (UTF8.encodePath fp) res'
+              Left  err  -> do
+                putStrLn "Failed pdf?"
+                TL.putStrLn . TL.decodeUtf8 $ err
+                -- B.writeFile (UTF8.encodePath fp) err
           _ -> do
-              let res = f (sfd ^. sfdWriterOpts . to writerOptions) pd
+              let res = f (sfdWO sfd) pd
               out <- if htmlFormat (sfd ^. sfdFormat)
-                 then P.makeSelfContained (sfd ^. sfdWriterOpts . to writerOptions) res
+                 then P.makeSelfContained (sfdWO sfd) res
                  else return res
               UTF8.writeFile fp out
 

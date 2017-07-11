@@ -33,6 +33,7 @@ library
                      , psqueues
                      , singletons
                      , skylighting
+                     , text
                      , time
                      , transformers
                      , type-combinators

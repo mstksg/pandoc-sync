@@ -14,11 +14,13 @@ sc = SC (DMParallelTree ext)
           ,("plain"   , "txt" )
           ,("html"    , "html")
           ,("pdf"     , "pdf" )
+          ,("latex"   , "tex" )
           ]
     fms = [("md"  , Writer $ FormatOptions (FMarkdown MDPandoc) (Has RO) (Has WO))
           ,("txt" , Writer $ FormatOptions FPlain               Hasn't   (Has WO))
           ,("html", Writer $ FormatOptions (FHTML True)         (Has RO) (Has WO))
           ,("pdf" , Writer $ FormatOptions (FPDF PTLaTeX)       Hasn't   (Has WO))
+          ,("tex" , Writer $ FormatOptions FLaTeX               (Has RO) (Has WO))
           ]
 
 main :: IO ()

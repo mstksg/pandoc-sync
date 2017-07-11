@@ -1,0 +1,260 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DataKinds           #-}</span><span>
+</span><a name="line-2"></a><span class="hs-pragma">{-# LANGUAGE DeriveGeneric       #-}</span><span>
+</span><a name="line-3"></a><span class="hs-pragma">{-# LANGUAGE GADTs               #-}</span><span>
+</span><a name="line-4"></a><span class="hs-pragma">{-# LANGUAGE KindSignatures      #-}</span><span>
+</span><a name="line-5"></a><span class="hs-pragma">{-# LANGUAGE LambdaCase          #-}</span><span>
+</span><a name="line-6"></a><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><a name="line-7"></a><span class="hs-pragma">{-# LANGUAGE TemplateHaskell     #-}</span><span>
+</span><a name="line-8"></a><span class="hs-pragma">{-# LANGUAGE TupleSections       #-}</span><span>
+</span><a name="line-9"></a><span class="hs-pragma">{-# LANGUAGE TypeApplications    #-}</span><span>
+</span><a name="line-10"></a><span class="hs-pragma">{-# LANGUAGE TypeOperators       #-}</span><span>
+</span><a name="line-11"></a><span class="hs-pragma">{-# LANGUAGE ViewPatterns        #-}</span><span>
+</span><a name="line-12"></a><span>
+</span><a name="line-13"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Sync</span><span class="hs-operator">.</span><span class="hs-identifier">File</span><span> </span><span class="hs-special">(</span><span>
+</span><a name="line-14"></a><span>    </span><a href="Text.Pandoc.Sync.File.html#SyncFileData"><span class="hs-identifier hs-type">SyncFileData</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><a name="line-15"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.File.html#SyncFile"><span class="hs-identifier hs-type">SyncFile</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><a name="line-16"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.File.html#sfSourcesSinks"><span class="hs-identifier hs-var">sfSourcesSinks</span></a><span>
+</span><a name="line-17"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.File.html#emptySyncFile"><span class="hs-identifier hs-var">emptySyncFile</span></a><span>
+</span><a name="line-18"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.File.html#runSyncFile"><span class="hs-identifier hs-var">runSyncFile</span></a><span>
+</span><a name="line-19"></a><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">PS</span><span>
+</span><a name="line-20"></a><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><a name="line-21"></a><span>
+</span><a name="line-22"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Exception</span><span>
+</span><a name="line-23"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Lens</span><span> </span><span class="hs-keyword">hiding</span><span>        </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-operator hs-var">&lt;.&gt;</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-24"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span>
+</span><a name="line-25"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span class="hs-operator">.</span><span class="hs-identifier">IO</span><span class="hs-operator">.</span><span class="hs-identifier">Class</span><span>
+</span><a name="line-26"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span class="hs-operator">.</span><span class="hs-identifier">Trans</span><span class="hs-operator">.</span><span class="hs-identifier">Except</span><span>
+</span><a name="line-27"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span class="hs-operator">.</span><span class="hs-identifier">Trans</span><span class="hs-operator">.</span><span class="hs-identifier">Maybe</span><span>
+</span><a name="line-28"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Binary</span><span class="hs-operator">.</span><span class="hs-identifier">Orphans</span><span>        </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><a name="line-29"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Dependent</span><span class="hs-operator">.</span><span class="hs-identifier">Sum</span><span>
+</span><a name="line-30"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Foldable</span><span>
+</span><a name="line-31"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Kind</span><span>
+</span><a name="line-32"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span>
+</span><a name="line-33"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span class="hs-operator">.</span><span class="hs-identifier">Prelude</span><span>
+</span><a name="line-34"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Time</span><span class="hs-operator">.</span><span class="hs-identifier">Clock</span><span>
+</span><a name="line-35"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Witherable</span><span>
+</span><a name="line-36"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">GHC</span><span class="hs-operator">.</span><span class="hs-identifier">Generics</span><span>               </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">)</span><span>
+</span><a name="line-37"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">Directory</span><span>
+</span><a name="line-38"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">FilePath</span><span>
+</span><a name="line-39"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">IO</span><span class="hs-operator">.</span><span class="hs-identifier">Error</span><span>
+</span><a name="line-40"></a><span class="hs-keyword">import</span><span>           </span><a href="Text.Pandoc.Sync.Format.html"><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Sync</span><span class="hs-operator">.</span><span class="hs-identifier">Format</span></a><span>    </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">PS</span><span>
+</span><a name="line-41"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Binary</span><span>                </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">Bi</span><span>
+</span><a name="line-42"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">ByteString</span><span class="hs-operator">.</span><span class="hs-identifier">Lazy</span><span>       </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">B</span><span>
+</span><a name="line-43"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Map</span><span>                   </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">M</span><span>
+</span><a name="line-44"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">OrdPSQ</span><span>                </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">PS</span><span>
+</span><a name="line-45"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span>                </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-46"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">MediaBag</span><span>       </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-47"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">PDF</span><span>            </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-48"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Readers</span><span class="hs-operator">.</span><span class="hs-identifier">LaTeX</span><span>  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-49"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">SelfContained</span><span>  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-50"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Shared</span><span>         </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-51"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">UTF8</span><span>           </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">UTF8</span><span>
+</span><a name="line-52"></a><span>
+</span><a name="line-53"></a><span class="hs-keyword">data</span><span> </span><a name="SyncFileData"><a href="Text.Pandoc.Sync.File.html#SyncFileData"><span class="hs-identifier">SyncFileData</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Bool</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">Type</span><span> </span><span class="hs-keyword">where</span><span>
+</span><a name="line-54"></a><span>    </span><a name="SyncFileData"><a href="Text.Pandoc.Sync.File.html#SyncFileData"><span class="hs-identifier">SyncFileData</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">{</span><span> </span><a name="_sfdFormat"><a href="Text.Pandoc.Sync.File.html#_sfdFormat"><span class="hs-identifier">_sfdFormat</span></a></a><span>     </span><span class="hs-glyph">::</span><span> </span><a href="Text.Pandoc.Sync.Format.html#Format"><span class="hs-identifier hs-type">Format</span></a><span> </span><a href="#local-6989586621679238663"><span class="hs-identifier hs-type">r</span></a><span> </span><span class="hs-char">'True
+                    , _sfdReaderOpts :: HasIf r ReaderOptions
+                    , _sfdWriterOpts :: WriterOptions
+                    , _sfdLastSync   :: Maybe UTCTime
+                    }
+                 -&gt; SyncFileData r
+  deriving (Generic, Show)
+
+makeLenses ''SyncFileData
+
+instance SingI r =&gt; Bi.Binary (SyncFileData r)
+
+data SyncFile = SyncFile
+    { _sfSources    :: M.Map FilePath (SyncFileData 'True )
+    , _sfSinks      :: M.Map FilePath (SyncFileData 'False)
+    -- TODO: add back in P.Pandoc to lastupdate
+    , _sfLastUpdate :: Maybe UTCTime
+    }
+  deriving (Generic, Show)
+
+makeLenses ''SyncFile
+
+instance Bi.Binary SyncFile
+
+emptySyncFile :: SyncFile
+emptySyncFile = SyncFile M.empty M.empty Nothing
+
+sfSourcesSinks :: Lens' SyncFile (M.Map FilePath (DSum Sing SyncFileData))
+sfSourcesSinks f s0 = f bigMap &lt;&amp;&gt; \bm -&gt;
+    let (newSources, newSinks) = M.mapEither breakUp bm
+    in  s0 &amp; sfSources .~ newSources
+           &amp; sfSinks   .~ newSinks
+  where
+    bigMap = M.union (g &lt;$&gt; (s0 ^. sfSources)) (g &lt;$&gt; (s0 ^. sfSinks))
+    g :: SingI r =&gt; SyncFileData r -&gt; DSum Sing SyncFileData
+    g sfd = sing :=&gt; sfd
+    breakUp :: DSum Sing SyncFileData -&gt; Either (SyncFileData 'True) (SyncFileData 'False)
+    breakUp = \case
+      STrue  :=&gt; sfd -&gt; Left sfd
+      SFalse :=&gt; sfd -&gt; Right sfd
+
+-- discoverSyncFile :: SyncFile -&gt; IO SyncFile
+-- discoverSyncFile s0 = do
+--     news &lt;- fmap (maybe M.empty (M.fromList . map swap . M.toList . catMaybes))
+--           . forM (s0 ^. syncDiscover) . uncurry $ \fname mode -&gt;
+--       forM (discFiles fname mode) $ \fp -&gt; runMaybeT $ do
+--         guard $ M.notMember fp (s0 ^. sfSources)
+--         guard $ M.notMember fp (s0 ^. sfSinks  )
+--         guard =&lt;&lt; liftIO (doesPathExist fp)
+--         return fp
+--     return $ s0 &amp; sfSourcesSinks %~ (`M.union` M.map mkNew news)
+--   where
+--     discFiles :: String -&gt; DiscoverMode -&gt; M.Map WriterFormat FilePath
+--     discFiles fname = \case
+--       DMSameDir fs d   -&gt; fs &lt;&amp;&gt; \ext      -&gt; d &lt;/&gt; fname &lt;/&gt; ext
+--       DMParallelDir fs -&gt; fs &lt;&amp;&gt; \(d, ext) -&gt; d &lt;/&gt; fname &lt;/&gt; ext
+--     mkNew :: WriterFormat -&gt; Some (Sing :&amp;: SyncFileData)
+--     mkNew = \case
+--       WriterFormat fm -&gt;
+--         let sB = sing
+--             ro = case sB of
+--               SFalse -&gt; ROUnreadable
+--               STrue  -&gt; ROReadable P.def
+--         in  Some (sB :&amp;: SyncFileData fm ro P.def Nothing)
+
+runSyncFile :: SyncFile -&gt; IO SyncFile
+runSyncFile s0 = do
+    syncTime &lt;- getCurrentTime
+    (updatesE, updates) &lt;- fmap (M.mapEither id . catMaybes)
+             . ifor (s0 ^. sfSources) $ \fp sfd -&gt; runMaybeT $ do
+      modTime &lt;- MaybeT
+               . liftIO
+               . fmap (either (const Nothing) Just)
+               . tryJust (guard . isDoesNotExistError)
+               $ getModificationTime fp
+    -- s &lt;- tryJust (guard . isDoesNotExistError) $ Bi.decodeFile (sc ^. scCache)
+      case sfd ^. sfdLastSync of
+        Nothing  -&gt; return ()
+        Just mt0 -&gt; guard $ mt0 &lt; modTime
+      liftIO . (fmap . fmap) ((sfd ^. sfdLastSync,) . fst) $
+        readPandoc (sfd ^. sfdFormat) (sfd ^. sfdReaderOpts . _Has . to readerOptions) fp
+    let sortedUpdates = mapToQueue id updates
+    case PS.minView sortedUpdates of
+      Nothing -&gt; do
+        putStrLn &quot;No updates found&quot;
+        return s0
+      Just (fp, _, pd, laterUpdates) -&gt; do
+        putStrLn &quot;Updates found!&quot;
+        itraverse_ backupError updatesE
+        itraverse_ backupLater $ queueToMap (flip const) laterUpdates
+        s0 &amp; sfLastUpdate                  .~ Just syncTime
+           &amp; sfSourcesSinks . itraversed %%@~ \fp' (s :=&gt; sfd) -&gt; do
+               sfd' &lt;- updateSource syncTime (fp == fp') pd fp' sfd
+               return $ s :=&gt; sfd'
+  where
+    backupError :: FilePath -&gt; P.PandocError -&gt; IO ()
+    backupError _ _ = return ()
+    backupLater :: FilePath -&gt; P.Pandoc -&gt; IO ()
+    backupLater _ _ = return ()
+    updateSource :: UTCTime -&gt; Bool -&gt; P.Pandoc -&gt; FilePath -&gt; SyncFileData r -&gt; IO (SyncFileData r)
+    updateSource st skipWrite pd fp sfd = do
+      createDirectoryIfMissing True (takeDirectory fp)
+      unless skipWrite $ case formatWriter (sfd ^. sfdFormat) of
+        P.IOStringWriter f -&gt;
+          UTF8.writeFile fp                =&lt;&lt; f (sfd ^. sfdWriterOpts . to writerOptions) pd
+        P.IOByteStringWriter f -&gt;
+          B.writeFile (UTF8.encodePath fp) =&lt;&lt; f (sfd ^. sfdWriterOpts . to writerOptions) pd
+        P.PureStringWriter f -&gt; case pdfEngine (sfd ^. sfdFormat) of
+          -- wrong wrong wrong!  should only do it if pdf!
+          Just eng -&gt; do
+            -- TODO: handle lack of prog?
+            -- Just mbPdfProg &lt;- findExecutable eng
+            res &lt;- P.makePDF eng f (sfd ^. sfdWriterOpts . to writerOptions) pd
+            -- TODO: handle bad res?
+            traverse_ (B.writeFile (UTF8.encodePath fp)) res
+          Nothing -&gt; do
+              let res = f (sfd ^. sfdWriterOpts . to writerOptions) pd
+              out &lt;- if htmlFormat (sfd ^. sfdFormat)
+                 then P.makeSelfContained (sfd ^. sfdWriterOpts . to writerOptions) res
+                 else return res
+              UTF8.writeFile fp out
+
+      return $ sfd &amp; sfdLastSync .~ Just st
+
+-- discoverAndRunSync :: Sync -&gt; IO Sync
+-- discoverAndRunSync = runSync &lt;=&lt; discoverSync
+
+-- initSync :: Either () (String, DiscoverMode) -&gt; Sync
+-- initSync = \case
+--     -- TODO: support
+--     Left ()  -&gt; Sync M.empty M.empty Nothing Nothing
+--     Right dm -&gt; Sync M.empty M.empty Nothing (Just dm)
+
+-- initAndDiscoverSync
+--     :: Either () (String, DiscoverMode)
+--     -&gt; IO Sync
+-- initAndDiscoverSync = discoverSync . initSync
+
+-- initAndRunSync
+--     :: Either () (String, DiscoverMode)
+--     -&gt; IO Sync
+-- initAndRunSync = discoverAndRunSync . initSync
+
+mapToQueue
+    :: (Ord k, Ord p)
+    =&gt; (a -&gt; (p, b))
+    -&gt; M.Map k a
+    -&gt; PS.OrdPSQ k p b
+mapToQueue f = PS.fromList . (map . uncurry) g . M.toList
+  where
+    g k (f-&gt;(p, v)) = (k, p, v)
+
+queueToMap
+    :: Ord k
+    =&gt; (p -&gt; a -&gt; b)
+    -&gt; PS.OrdPSQ k p a
+    -&gt; M.Map k b
+queueToMap f = M.fromList . map g . PS.toList
+  where
+    g (k, p, v) = (k, f p v)
+
+-- TODO: customizable latex engine
+pdfEngine
+    :: Format r w
+    -&gt; Maybe String
+pdfEngine = \case
+    FLaTeX              -&gt; Just &quot;pdflatex&quot;
+    FSlideShow SSBeamer -&gt; Just &quot;pdflatex&quot;
+    FContext            -&gt; Just &quot;context&quot;
+    FHTML True          -&gt; Just &quot;wkhtmltopdf&quot;
+    _                   -&gt; Nothing
+
+htmlFormat
+    :: Format r w
+    -&gt; Bool
+htmlFormat = \case
+    FHTML _ -&gt; True
+    FSlideShow ss -&gt; case ss of
+      SSBeamer -&gt; False
+      _        -&gt; True
+    _       -&gt; False
+
+readPandoc
+    :: Format 'True w
+    -&gt; P.ReaderOptions
+    -&gt; FilePath
+    -&gt; IO (Either P.PandocError (P.Pandoc, P.MediaBag))
+readPandoc ft ro fp = case formatReader ft of
+    P.StringReader r -&gt; runExceptT $ do
+      src &lt;- convertTabs &lt;$&gt; liftIO (readFile fp)
+      doc &lt;- ExceptT $ handleIncludes src
+      out &lt;- ExceptT $ r ro doc
+      return (out, mempty)
+    P.ByteStringReader r -&gt;
+      r ro =&lt;&lt; B.readFile fp
+  where
+    convertTabs = P.tabFilter $ case ft of
+      FT2T -&gt; 0
+      _    -&gt; P.readerTabStop ro
+    handleIncludes :: String -&gt; IO (Either P.PandocError String)
+    handleIncludes = case ft of
+      FLaTeX -&gt; P.handleIncludes
+      _      -&gt; return . Right
+
+
+
+</span></pre></body></html>

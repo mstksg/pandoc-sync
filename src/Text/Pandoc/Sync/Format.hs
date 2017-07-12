@@ -1,8 +1,10 @@
 {-# LANGUAGE DeriveGeneric        #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE GADTs                #-}
+{-# LANGUAGE InstanceSigs         #-}
 {-# LANGUAGE KindSignatures       #-}
 {-# LANGUAGE LambdaCase           #-}
+{-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE TemplateHaskell      #-}
@@ -15,6 +17,7 @@ module Text.Pandoc.Sync.Format (
   , SlideShowType(..), AsSlideShowType(..)
   , PDFType(..)
   , Format(..), AsFormat(..)
+  , asReader
   , Writer(..)
   , ReaderOptions(..)
   , fromReaderOptions
@@ -132,12 +135,25 @@ instance (SingI r, SingI w) => Hashable (Format r w) where
     hashWithSalt s fm = s `hashWithSalt` Bi.encode fm
 
 class AsFormat ft where
+    _FHTML      :: Prism' (ft 'True 'True ) Bool
     _FSlideShow :: Prism' (ft 'False 'True) SlideShowType
+    _FPDF       :: Prism' (ft 'False 'True) PDFType
 
 instance AsFormat Format where
+    _FHTML = prism FHTML (\case FHTML t -> Right t
+                                ft      -> Left ft
+                         )
     _FSlideShow = prism FSlideShow (\case FSlideShow t -> Right t
                                           ft           -> Left ft
                                    )
+    _FPDF = prism FPDF (\case FPDF t -> Right t
+                              ft     -> Left ft
+                       )
+
+asReader :: forall r' r w. SingI r' => Sing r -> Traversal' (Format r' w) (Format r w)
+asReader sr f = case sing @_ @r' Si.%~ sr of
+    Si.Proved Refl -> f
+    Si.Disproved _ -> pure
 
 data Writer :: (Bool -> Bool -> Type) -> Type where
     Writer :: SingI r => f r 'True -> Writer f

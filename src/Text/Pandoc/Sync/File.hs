@@ -211,7 +211,7 @@ runSyncFile s0 = do
     -- -> WriterOptions
     -- -> FilePath
 
-      -- $ case formatWriter (sfd ^. sfdFormat) of
+      -- case formatWriter (sfd ^. sfdFormat) of
       --   P.IOStringWriter f ->
       --     UTF8.writeFile fp                =<< f (sfdWO sfd) pd
       --   P.IOByteStringWriter f ->

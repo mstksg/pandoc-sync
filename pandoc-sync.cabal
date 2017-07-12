@@ -19,6 +19,7 @@ library
                        Text.Pandoc.Sync.Format
                        Text.Pandoc.Sync.File
                        Text.Pandoc.Sync.Writer
+  other-modules:       Text.Pandoc.Lens.App
   build-depends:       base >= 4.7 && < 5
                      , binary
                      , binary-orphans

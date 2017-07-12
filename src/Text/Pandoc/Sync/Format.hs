@@ -12,9 +12,9 @@
 
 module Text.Pandoc.Sync.Format (
     MarkdownType(..)
-  , SlideShowType(..)
+  , SlideShowType(..), AsSlideShowType(..)
   , PDFType(..)
-  , Format(..)
+  , Format(..), AsFormat(..)
   , Writer(..)
   , ReaderOptions(..)
   , fromReaderOptions
@@ -66,6 +66,8 @@ data SlideShowType = SSS5
                    | SSRevealJS
                    | SSBeamer
   deriving (Show, Generic)
+
+makeClassyPrisms ''SlideShowType
 
 instance Bi.Binary SlideShowType
 
@@ -128,6 +130,14 @@ instance (SingI r, SingI w) => Bi.Binary (Format r w) where
 
 instance (SingI r, SingI w) => Hashable (Format r w) where
     hashWithSalt s fm = s `hashWithSalt` Bi.encode fm
+
+class AsFormat ft where
+    _FSlideShow :: Prism' (ft 'False 'True) SlideShowType
+
+instance AsFormat Format where
+    _FSlideShow = prism FSlideShow (\case FSlideShow t -> Right t
+                                          ft           -> Left ft
+                                   )
 
 data Writer :: (Bool -> Bool -> Type) -> Type where
     Writer :: SingI r => f r 'True -> Writer f
@@ -251,7 +261,18 @@ instance Hashable a => Hashable (HasIf b a) where
 data ReaderOptions = RO
     deriving (Show, Eq, Ord, Generic)
 
-data WriterOptions = WO { _woStandalone :: Bool }
+deriving instance Ord P.HTMLMathMethod
+instance Bi.Binary P.HTMLMathMethod
+instance Hashable P.HTMLMathMethod
+
+data WriterOptions = WO { _woStandalone   :: Bool
+                        , _woTemplatePath :: Maybe FilePath
+                        , _woDataDir      :: Maybe FilePath
+                        , _woMathMethod   :: P.HTMLMathMethod
+                        , _woVariables    :: [(String, String)]
+                        , _woTabStop      :: Int
+                        , _woTOC          :: Bool
+                        }
     deriving (Show, Eq, Ord, Generic)
 
 makeClassy ''WriterOptions
@@ -263,7 +284,7 @@ instance Default ReaderOptions where
     def = RO
 
 instance Default WriterOptions where
-    def = WO False
+    def = WO True Nothing Nothing P.PlainMath [] 4 False
 
 instance Hashable ReaderOptions
 instance Hashable WriterOptions

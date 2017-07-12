@@ -1,6 +1,9 @@
-{-# LANGUAGE DataKinds  #-}
-{-# LANGUAGE GADTs      #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE PolyKinds           #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
 
 module Text.Pandoc.Sync.Writer (
     writePandoc
@@ -8,71 +11,133 @@ module Text.Pandoc.Sync.Writer (
 
 -- import qualified Text.Pandoc.MediaBag      as P
 -- import qualified Text.Pandoc.Readers.LaTeX as P
--- import qualified Text.Pandoc.Shared        as P
-import           Control.Lens
+import           Control.Applicative
+import           Control.Exception
+import           Control.Lens hiding          ((<.>), (%~))
+import           Control.Monad
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Maybe
 import           Data.Default
+import           Data.List
+import           Data.Maybe
+import           Data.Singletons
+import           Data.Singletons.Decide
+import           Data.Singletons.Prelude.Bool
 import           System.Directory
+import           System.FilePath
+import           System.IO.Error
 import           Text.Pandoc.Sync.Format
 import qualified Data.ByteString.Lazy         as B
 import qualified Data.Text.Lazy.Encoding      as TL
 import qualified Data.Text.Lazy.IO            as TL
 import qualified Text.Pandoc                  as P
+import qualified Text.Pandoc.Lens.App         as P
 import qualified Text.Pandoc.Options          as P
 import qualified Text.Pandoc.PDF              as P
 import qualified Text.Pandoc.SelfContained    as P
+import qualified Text.Pandoc.Shared           as P
+import qualified Text.Pandoc.Templates        as P
+import qualified Text.Pandoc.MediaBag         as P
 import qualified Text.Pandoc.UTF8             as UTF8
 
 writePandoc
-    :: Format r 'True
+    :: SingI r
+    => Format r 'True
     -> P.Pandoc
+    -> P.MediaBag
     -> WriterOptions
     -> FilePath
     -> IO ()
-writePandoc ft pd wo fp = case formatWriter ft of
-    P.IOStringWriter f ->
-      UTF8.writeFile fp                =<< f wo' pd
-    P.IOByteStringWriter f ->
-      B.writeFile (UTF8.encodePath fp) =<< f wo' pd
-    P.PureStringWriter f -> case ft of
-      FPDF pdft -> do
-        let eng = pdfEngine pdft
-        -- TODO: handle lack of prog?
-        mbPdfProg <- findExecutable eng
-        print $ has _Just mbPdfProg
-        res <- P.makePDF eng f wo' pd
-        putStrLn $ "hey pdf! " ++ fp
-        -- TODO: handle bad res?
-        case res of
-          Right res' -> B.writeFile (UTF8.encodePath fp) res'
-          Left  err  -> do
-            putStrLn "Failed pdf?"
-            TL.putStrLn . TL.decodeUtf8 $ err
-            -- B.writeFile (UTF8.encodePath fp) err
-      _ -> do
-          let res = f wo' pd
-          out <- if htmlFormat ft
-             then P.makeSelfContained wo' res
-             else return res
-          UTF8.writeFile fp out
-  where
-    wo' = mkWriterOptions ft wo
+writePandoc ft pd bag wo fp = do
+    wo' <- mkWriterOptions ft wo bag
+    case formatWriter ft of
+      P.IOStringWriter f ->
+        UTF8.writeFile fp                =<< f wo' pd
+      P.IOByteStringWriter f ->
+        B.writeFile (UTF8.encodePath fp) =<< f wo' pd
+      P.PureStringWriter f -> case ft of
+        FPDF pdft -> do
+          let eng = pdfEngine pdft
+          -- TODO: handle lack of prog?
+          mbPdfProg <- findExecutable eng
+          print $ has _Just mbPdfProg
+          res <- P.makePDF eng f wo' pd
+          putStrLn $ "hey pdf! " ++ fp
+          -- TODO: handle bad res?
+          case res of
+            Right res' -> B.writeFile (UTF8.encodePath fp) res'
+            Left  err  -> do
+              putStrLn "Failed pdf?"
+              TL.putStrLn . TL.decodeUtf8 $ err
+              -- B.writeFile (UTF8.encodePath fp) err
+        _ -> do
+            let res = f wo' pd
+            out <- if htmlFormat ft
+               then P.makeSelfContained wo' res
+               else return res
+            UTF8.writeFile fp out
 
 mkWriterOptions
-    :: Format r 'True
+    :: forall r. SingI r
+    => Format r 'True
     -> WriterOptions
-    -> P.WriterOptions
-mkWriterOptions ft wo = def
+    -> P.MediaBag
+    -> IO P.WriterOptions
+mkWriterOptions ft wo bag = do
+    datadir <- runMaybeT $
+          MaybeT (return $ wo ^. woDataDir)
+      <|> MaybeT (catch @SomeException
+                        (Just <$> getAppUserDataDirectory "pandoc")
+                        (\_ -> return Nothing                     )
+                 )
+
+    templ <- case wo ^. woTemplatePath of
+      _ | not standalone -> return Nothing
+      Nothing ->
+        either throwIO (return . Just) =<< P.getDefaultTemplate datadir (writerString ft)
+      Just tp -> do
+        -- strip off extensions
+        let tp' = case takeExtension tp of
+                    ""   -> tp <.> writerString ft
+                    _    -> tp
+        Just <$> catch (UTF8.readFile tp')
+          (\e -> if isDoesNotExistError e
+                    then catch @SomeException
+                               (P.readDataFileUTF8 datadir ("templates" </> tp'))
+                               throwIO
+                    else throwIO e
+          )
+
+    mathVar <- forM (wo ^? woMathMethod . P._LaTeXMathML . _Nothing) $ \_ -> do
+       s <- P.readDataFileUTF8 datadir "LaTeXMathML.js"
+       return ("mathml-script", s)
+    dzVar   <- runMaybeT @IO @(String, String) $ do
+      Refl <- MaybeT . return $ (sing @_ @r %~ SFalse) ^? _Proved
+      ()   <- MaybeT . return $ ft ^? _FSlideShow . _SSDZSlides
+      liftIO $ do
+        dztempl <- P.readDataFileUTF8 datadir ("dzslides" </> "template.html")
+        let dzline = "<!-- {{{{ dzslides core"
+            dzcore = unlines
+                   $ dropWhile (not . (dzline `isPrefixOf`))
+                   $ lines dztempl
+        return ("dzslides-core", dzcore)
+    let variables = concat [ maybeToList mathVar
+                           , maybeToList dzVar
+                           , wo ^. woVariables
+                           ]
+
+    return def { P.writerTemplate        = templ
+               , P.writerVariables       = variables
+               , P.writerTabStop         = wo ^. woTabStop
+               , P.writerTableOfContents = wo ^. woTOC
+               , P.writerHTMLMathMethod  = wo ^. woMathMethod
+               , P.writerMediaBag        = bag
+               }
+
   where
-    standalone' = wo ^. woStandalone -- || not (isTextFormat ft) || pdfOutput
+    standalone = wo ^. woStandalone -- || not (isTextFormat ft) || pdfOutput
 
--- isTextFormat :: Format r 'True -> Bool
--- isTextFormat = \case
---     FODT    -> True
---     FDocX   -> True
---     FEPub _ -> True
-
---   let writerOptions = def { writerStandalone       = standalone',
---                             writerTemplate         = templ,
+--   let writerOptions = def { writerTemplate         = templ,
 --                             writerVariables        = variables'',
 --                             writerTabStop          = tabStop,
 --                             writerTableOfContents  = toc,
@@ -84,6 +149,7 @@ mkWriterOptions ft wo = def
 --                             writerNumberOffset     = numberFrom,
 --                             writerSectionDivs      = sectionDivs,
 --                             writerReferenceLinks   = referenceLinks,
+--                             writerReferenceLocation = referenceLocation,
 --                             writerDpi              = dpi,
 --                             writerWrapText         = wrap,
 --                             writerColumns          = columns,
@@ -93,7 +159,7 @@ mkWriterOptions ft wo = def
 --                             writerUserDataDir      = datadir,
 --                             writerHtml5            = html5,
 --                             writerHtmlQTags        = htmlQTags,
---                             writerChapters         = chapters,
+--                             writerTopLevelDivision = topLevelDivision,
 --                             writerListings         = listings,
 --                             writerBeamer           = False,
 --                             writerSlideLevel       = slideLevel,
@@ -112,6 +178,12 @@ mkWriterOptions ft wo = def
 --                             writerVerbose          = verbose,
 --                             writerLaTeXArgs        = latexEngineArgs
 --                           }
+
+-- isTextFormat :: Format r 'True -> Bool
+-- isTextFormat = \case
+--     FODT    -> True
+--     FDocX   -> True
+--     FEPub _ -> True
 
 -- TODO: customizable latex engine
 pdfEngine
@@ -497,3 +569,8 @@ htmlFormat = \case
 --                 handleEntities = if htmlFormat && ascii
 --                                     then toEntities
 --                                     else id
+
+_Proved :: Prism' (Decision a) a
+_Proved = prism Proved (\case Proved x -> Right x
+                              d        -> Left d
+                       )

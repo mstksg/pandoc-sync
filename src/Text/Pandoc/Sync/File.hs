@@ -4,6 +4,7 @@
 {-# LANGUAGE KindSignatures       #-}
 {-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TupleSections        #-}
 {-# LANGUAGE TypeApplications     #-}
@@ -33,6 +34,7 @@ import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
 import           Data.Binary.Orphans          ()
 import           Data.Dependent.Sum
+import           Data.Foldable
 import           Data.Kind
 import           Data.Singletons
 import           Data.Singletons.Prelude.Bool
@@ -70,8 +72,7 @@ instance SingI r => Bi.Binary (SyncFileData r)
 data SyncFile = SyncFile
     { _sfSources    :: M.Map FilePath (SyncFileData 'True )
     , _sfSinks      :: M.Map FilePath (SyncFileData 'False)
-    -- TODO: add back in P.Pandoc to lastupdate
-    , _sfLastUpdate :: Maybe (UTCTime, P.Pandoc)
+    , _sfLastUpdate :: Maybe (UTCTime, P.Pandoc, P.MediaBag)
     }
   deriving (Generic, Show)
 
@@ -92,6 +93,12 @@ instance Bi.Binary P.ListNumberDelim
 instance Bi.Binary P.Alignment
 
 instance Bi.Binary SyncFile
+
+instance Bi.Binary P.MediaBag where
+    get = foldl' @[] (flip $ \(fp, mt, c) -> P.insertMedia fp (Just mt) c) mempty <$> Bi.get
+    put mb = Bi.put $ mapMaybe go (P.mediaDirectory mb)
+      where
+        go (fp, _, _) = (\(mt, c) -> (fp, mt, c)) <$> P.lookupMedia fp mb
 
 emptySyncFile :: SyncFile
 emptySyncFile = SyncFile M.empty M.empty Nothing
@@ -156,39 +163,47 @@ runSyncFile s0 = do
                                  (sfd ^. sfdReaderOpts . _Has . to fromReaderOptions)
                                  fp
       MaybeT . return $ case epd of
-        Right (newPd, _) -> case s0 ^? sfLastUpdate . _Just . _2 of
+        Right (newPd, mb) -> case s0 ^? sfLastUpdate . _Just . _2 of
           Just oldPd | oldPd == newPd
                     -> Nothing
-          _         -> Just $ Right (sfd ^. sfdLastSync, newPd)
+          _         -> Just $ Right (sfd ^. sfdLastSync, (newPd, mb))
         Left e      -> Just $ Left e
     let sortedUpdates = mapToQueue id updates
     case PS.minView sortedUpdates of
       Nothing -> do
         putStrLn "No updates found"
-        case s0 ^? sfLastUpdate . _Just . _2 of
+        case s0 ^? sfLastUpdate . _Just . to (\(_,pd,mb) -> (pd, mb)) of
           Nothing -> return s0
-          Just pd -> do
+          Just (pd, mb) -> do
             putStrLn "Updating sinks anyway"
             s0 & sfSinks . itraversed %%@~ \fp' sfd ->
-              updateSource syncTime False pd fp' sfd
-      Just (fp, _, pd, laterUpdates) -> do
+              updateSource syncTime False pd mb fp' sfd
+      Just (fp, _, (pd, mb), laterUpdates) -> do
         putStrLn "Updates found!"
         itraverse_ backupError updatesE
         itraverse_ backupLater $ queueToMap (flip const) laterUpdates
-        s0 & sfLastUpdate                  .~ Just (syncTime, pd)
-           & sfSourcesSinks . itraversed %%@~ \fp' (s :=> sfd) -> do
-               sfd' <- updateSource syncTime (fp == fp') pd fp' sfd
+        s0 & sfLastUpdate                  .~ Just (syncTime, pd, mb)
+           & sfSourcesSinks . itraversed %%@~ \fp' (s :=> sfd) -> withSingI s $ do
+               sfd' <- updateSource syncTime (fp == fp') pd mb fp' sfd
                return $ s :=> sfd'
   where
     backupError :: FilePath -> P.PandocError -> IO ()
     backupError _ _ = return ()
-    backupLater :: FilePath -> P.Pandoc -> IO ()
+    backupLater :: FilePath -> (P.Pandoc, P.MediaBag) -> IO ()
     backupLater _ _ = return ()
-    updateSource :: UTCTime -> Bool -> P.Pandoc -> FilePath -> SyncFileData r -> IO (SyncFileData r)
-    updateSource st skipWrite pd fp sfd = do
+    updateSource
+        :: SingI r
+        => UTCTime
+        -> Bool
+        -> P.Pandoc
+        -> P.MediaBag
+        -> FilePath
+        -> SyncFileData r
+        -> IO (SyncFileData r)
+    updateSource st skipWrite pd mb fp sfd = do
       createDirectoryIfMissing True (takeDirectory fp)
       unless skipWrite $
-        writePandoc (sfd ^. sfdFormat) pd (sfd ^. sfdWriterOpts) fp
+        writePandoc (sfd ^. sfdFormat) pd mb (sfd ^. sfdWriterOpts) fp
       return $ sfd & sfdLastSync .~ Just st
 
     -- :: Format r 'True

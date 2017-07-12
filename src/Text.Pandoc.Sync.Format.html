@@ -1,73 +1,76 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DeriveGeneric        #-}</span><span>
 </span><a name="line-2"></a><span class="hs-pragma">{-# LANGUAGE FlexibleInstances    #-}</span><span>
 </span><a name="line-3"></a><span class="hs-pragma">{-# LANGUAGE GADTs                #-}</span><span>
-</span><a name="line-4"></a><span class="hs-pragma">{-# LANGUAGE KindSignatures       #-}</span><span>
-</span><a name="line-5"></a><span class="hs-pragma">{-# LANGUAGE LambdaCase           #-}</span><span>
-</span><a name="line-6"></a><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables  #-}</span><span>
-</span><a name="line-7"></a><span class="hs-pragma">{-# LANGUAGE StandaloneDeriving   #-}</span><span>
-</span><a name="line-8"></a><span class="hs-pragma">{-# LANGUAGE TemplateHaskell      #-}</span><span>
-</span><a name="line-9"></a><span class="hs-pragma">{-# LANGUAGE TypeApplications     #-}</span><span>
-</span><a name="line-10"></a><span class="hs-pragma">{-# LANGUAGE TypeInType           #-}</span><span>
-</span><a name="line-11"></a><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-orphans #-}</span><span>
-</span><a name="line-12"></a><span>
-</span><a name="line-13"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Sync</span><span class="hs-operator">.</span><span class="hs-identifier">Format</span><span> </span><span class="hs-special">(</span><span>
-</span><a name="line-14"></a><span>    </span><a href="Text.Pandoc.Sync.Format.html#MarkdownType"><span class="hs-identifier hs-type">MarkdownType</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
-</span><a name="line-15"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#SlideShowType"><span class="hs-identifier hs-type">SlideShowType</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#AsSlideShowType"><span class="hs-identifier hs-type">AsSlideShowType</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
-</span><a name="line-16"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#PDFType"><span class="hs-identifier hs-type">PDFType</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
-</span><a name="line-17"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#Format"><span class="hs-identifier hs-type">Format</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#AsFormat"><span class="hs-identifier hs-type">AsFormat</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
-</span><a name="line-18"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#Writer"><span class="hs-identifier hs-type">Writer</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
-</span><a name="line-19"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#ReaderOptions"><span class="hs-identifier hs-type">ReaderOptions</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
-</span><a name="line-20"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#fromReaderOptions"><span class="hs-identifier hs-var">fromReaderOptions</span></a><span>
-</span><a name="line-21"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#WriterOptions"><span class="hs-identifier hs-type">WriterOptions</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#HasWriterOptions"><span class="hs-identifier hs-type">HasWriterOptions</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
-</span><a name="line-22"></a><span>  </span><span class="hs-comment">-- , writerOptions</span><span>
-</span><a name="line-23"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#formatReader"><span class="hs-identifier hs-var">formatReader</span></a><span>
-</span><a name="line-24"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#formatWriter"><span class="hs-identifier hs-var">formatWriter</span></a><span>
-</span><a name="line-25"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#FormatOptions"><span class="hs-identifier hs-type">FormatOptions</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
-</span><a name="line-26"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#foFormat"><span class="hs-identifier hs-var">foFormat</span></a><span>
-</span><a name="line-27"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#pdfFormat"><span class="hs-identifier hs-var">pdfFormat</span></a><span>
-</span><a name="line-28"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#foWriterOpts"><span class="hs-identifier hs-var">foWriterOpts</span></a><span>
-</span><a name="line-29"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#foReaderOpts"><span class="hs-identifier hs-var">foReaderOpts</span></a><span>
-</span><a name="line-30"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#readerString"><span class="hs-identifier hs-var">readerString</span></a><span>
-</span><a name="line-31"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#writerString"><span class="hs-identifier hs-var">writerString</span></a><span>
-</span><a name="line-32"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#HasIf"><span class="hs-identifier hs-type">HasIf</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
-</span><a name="line-33"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#_Has"><span class="hs-identifier hs-var">_Has</span></a><span>
-</span><a name="line-34"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#_Hasn%27t"><span class="hs-identifier hs-var">_Hasn't</span></a><span>
-</span><a name="line-35"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#_HasMaybe"><span class="hs-identifier hs-var">_HasMaybe</span></a><span>
-</span><a name="line-36"></a><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-37"></a><span>
-</span><a name="line-38"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Lens</span><span>
-</span><a name="line-39"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Default</span><span>
-</span><a name="line-40"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Hashable</span><span>
-</span><a name="line-41"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Kind</span><span>
-</span><a name="line-42"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Maybe</span><span>
-</span><a name="line-43"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span>
-</span><a name="line-44"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span class="hs-operator">.</span><span class="hs-identifier">Prelude</span><span class="hs-operator">.</span><span class="hs-identifier">Bool</span><span>
-</span><a name="line-45"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Type</span><span class="hs-operator">.</span><span class="hs-identifier">Equality</span><span>
-</span><a name="line-46"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">GHC</span><span class="hs-operator">.</span><span class="hs-identifier">Generics</span><span>                 </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">)</span><span>
-</span><a name="line-47"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Binary</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">Bi</span><span>
-</span><a name="line-48"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">IntMap</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">IM</span><span>
-</span><a name="line-49"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span class="hs-operator">.</span><span class="hs-identifier">Decide</span><span>       </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">Si</span><span>
-</span><a name="line-50"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
-</span><a name="line-51"></a><span>
-</span><a name="line-52"></a><span class="hs-keyword">data</span><span> </span><a name="MarkdownType"><a href="Text.Pandoc.Sync.Format.html#MarkdownType"><span class="hs-identifier">MarkdownType</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="MDPandoc"><a href="Text.Pandoc.Sync.Format.html#MDPandoc"><span class="hs-identifier">MDPandoc</span></a></a><span>
-</span><a name="line-53"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDStrict"><a href="Text.Pandoc.Sync.Format.html#MDStrict"><span class="hs-identifier">MDStrict</span></a></a><span>
-</span><a name="line-54"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDPHP"><a href="Text.Pandoc.Sync.Format.html#MDPHP"><span class="hs-identifier">MDPHP</span></a></a><span>
-</span><a name="line-55"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDGithub"><a href="Text.Pandoc.Sync.Format.html#MDGithub"><span class="hs-identifier">MDGithub</span></a></a><span>
-</span><a name="line-56"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDMulti"><a href="Text.Pandoc.Sync.Format.html#MDMulti"><span class="hs-identifier">MDMulti</span></a></a><span>
-</span><a name="line-57"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDCommon"><a href="Text.Pandoc.Sync.Format.html#MDCommon"><span class="hs-identifier">MDCommon</span></a></a><span>
-</span><a name="line-58"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">)</span><span>
-</span><a name="line-59"></a><span>
-</span><a name="line-60"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">Bi</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Binary</span><span> </span><a href="Text.Pandoc.Sync.Format.html#MarkdownType"><span class="hs-identifier hs-type">MarkdownType</span></a><span>
-</span><a name="line-61"></a><span>
-</span><a name="line-62"></a><span class="hs-keyword">data</span><span> </span><a name="SlideShowType"><a href="Text.Pandoc.Sync.Format.html#SlideShowType"><span class="hs-identifier">SlideShowType</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="SSS5"><a href="Text.Pandoc.Sync.Format.html#SSS5"><span class="hs-identifier">SSS5</span></a></a><span>
-</span><a name="line-63"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSSlidy"><a href="Text.Pandoc.Sync.Format.html#SSSlidy"><span class="hs-identifier">SSSlidy</span></a></a><span>
-</span><a name="line-64"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSSlideous"><a href="Text.Pandoc.Sync.Format.html#SSSlideous"><span class="hs-identifier">SSSlideous</span></a></a><span>
-</span><a name="line-65"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSDZSlides"><a href="Text.Pandoc.Sync.Format.html#SSDZSlides"><span class="hs-identifier">SSDZSlides</span></a></a><span>
-</span><a name="line-66"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSRevealJS"><a href="Text.Pandoc.Sync.Format.html#SSRevealJS"><span class="hs-identifier">SSRevealJS</span></a></a><span>
-</span><a name="line-67"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSBeamer"><a href="Text.Pandoc.Sync.Format.html#SSBeamer"><span class="hs-identifier">SSBeamer</span></a></a><span>
-</span><a name="line-68"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">)</span><span>
-</span><a name="line-69"></a><span>
-</span><a name="line-70"></a><span class="hs-identifier hs-var">makeClassyPrisms</span><span> </span><span class="hs-char">''SlideShowType
+</span><a name="line-4"></a><span class="hs-pragma">{-# LANGUAGE InstanceSigs         #-}</span><span>
+</span><a name="line-5"></a><span class="hs-pragma">{-# LANGUAGE KindSignatures       #-}</span><span>
+</span><a name="line-6"></a><span class="hs-pragma">{-# LANGUAGE LambdaCase           #-}</span><span>
+</span><a name="line-7"></a><span class="hs-pragma">{-# LANGUAGE RankNTypes           #-}</span><span>
+</span><a name="line-8"></a><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables  #-}</span><span>
+</span><a name="line-9"></a><span class="hs-pragma">{-# LANGUAGE StandaloneDeriving   #-}</span><span>
+</span><a name="line-10"></a><span class="hs-pragma">{-# LANGUAGE TemplateHaskell      #-}</span><span>
+</span><a name="line-11"></a><span class="hs-pragma">{-# LANGUAGE TypeApplications     #-}</span><span>
+</span><a name="line-12"></a><span class="hs-pragma">{-# LANGUAGE TypeInType           #-}</span><span>
+</span><a name="line-13"></a><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-orphans #-}</span><span>
+</span><a name="line-14"></a><span>
+</span><a name="line-15"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Sync</span><span class="hs-operator">.</span><span class="hs-identifier">Format</span><span> </span><span class="hs-special">(</span><span>
+</span><a name="line-16"></a><span>    </span><a href="Text.Pandoc.Sync.Format.html#MarkdownType"><span class="hs-identifier hs-type">MarkdownType</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><a name="line-17"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#SlideShowType"><span class="hs-identifier hs-type">SlideShowType</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#AsSlideShowType"><span class="hs-identifier hs-type">AsSlideShowType</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><a name="line-18"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#PDFType"><span class="hs-identifier hs-type">PDFType</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><a name="line-19"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#Format"><span class="hs-identifier hs-type">Format</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#AsFormat"><span class="hs-identifier hs-type">AsFormat</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><a name="line-20"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#asReader"><span class="hs-identifier hs-var">asReader</span></a><span>
+</span><a name="line-21"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#Writer"><span class="hs-identifier hs-type">Writer</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><a name="line-22"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#ReaderOptions"><span class="hs-identifier hs-type">ReaderOptions</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><a name="line-23"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#fromReaderOptions"><span class="hs-identifier hs-var">fromReaderOptions</span></a><span>
+</span><a name="line-24"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#WriterOptions"><span class="hs-identifier hs-type">WriterOptions</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#HasWriterOptions"><span class="hs-identifier hs-type">HasWriterOptions</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><a name="line-25"></a><span>  </span><span class="hs-comment">-- , writerOptions</span><span>
+</span><a name="line-26"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#formatReader"><span class="hs-identifier hs-var">formatReader</span></a><span>
+</span><a name="line-27"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#formatWriter"><span class="hs-identifier hs-var">formatWriter</span></a><span>
+</span><a name="line-28"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#FormatOptions"><span class="hs-identifier hs-type">FormatOptions</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><a name="line-29"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#foFormat"><span class="hs-identifier hs-var">foFormat</span></a><span>
+</span><a name="line-30"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#pdfFormat"><span class="hs-identifier hs-var">pdfFormat</span></a><span>
+</span><a name="line-31"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#foWriterOpts"><span class="hs-identifier hs-var">foWriterOpts</span></a><span>
+</span><a name="line-32"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#foReaderOpts"><span class="hs-identifier hs-var">foReaderOpts</span></a><span>
+</span><a name="line-33"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#readerString"><span class="hs-identifier hs-var">readerString</span></a><span>
+</span><a name="line-34"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#writerString"><span class="hs-identifier hs-var">writerString</span></a><span>
+</span><a name="line-35"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#HasIf"><span class="hs-identifier hs-type">HasIf</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><a name="line-36"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#_Has"><span class="hs-identifier hs-var">_Has</span></a><span>
+</span><a name="line-37"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#_Hasn%27t"><span class="hs-identifier hs-var">_Hasn't</span></a><span>
+</span><a name="line-38"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#_HasMaybe"><span class="hs-identifier hs-var">_HasMaybe</span></a><span>
+</span><a name="line-39"></a><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><a name="line-40"></a><span>
+</span><a name="line-41"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Lens</span><span>
+</span><a name="line-42"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Default</span><span>
+</span><a name="line-43"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Hashable</span><span>
+</span><a name="line-44"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Kind</span><span>
+</span><a name="line-45"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Maybe</span><span>
+</span><a name="line-46"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span>
+</span><a name="line-47"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span class="hs-operator">.</span><span class="hs-identifier">Prelude</span><span class="hs-operator">.</span><span class="hs-identifier">Bool</span><span>
+</span><a name="line-48"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Type</span><span class="hs-operator">.</span><span class="hs-identifier">Equality</span><span>
+</span><a name="line-49"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">GHC</span><span class="hs-operator">.</span><span class="hs-identifier">Generics</span><span>                 </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">)</span><span>
+</span><a name="line-50"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Binary</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">Bi</span><span>
+</span><a name="line-51"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">IntMap</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">IM</span><span>
+</span><a name="line-52"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span class="hs-operator">.</span><span class="hs-identifier">Decide</span><span>       </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">Si</span><span>
+</span><a name="line-53"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-54"></a><span>
+</span><a name="line-55"></a><span class="hs-keyword">data</span><span> </span><a name="MarkdownType"><a href="Text.Pandoc.Sync.Format.html#MarkdownType"><span class="hs-identifier">MarkdownType</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="MDPandoc"><a href="Text.Pandoc.Sync.Format.html#MDPandoc"><span class="hs-identifier">MDPandoc</span></a></a><span>
+</span><a name="line-56"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDStrict"><a href="Text.Pandoc.Sync.Format.html#MDStrict"><span class="hs-identifier">MDStrict</span></a></a><span>
+</span><a name="line-57"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDPHP"><a href="Text.Pandoc.Sync.Format.html#MDPHP"><span class="hs-identifier">MDPHP</span></a></a><span>
+</span><a name="line-58"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDGithub"><a href="Text.Pandoc.Sync.Format.html#MDGithub"><span class="hs-identifier">MDGithub</span></a></a><span>
+</span><a name="line-59"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDMulti"><a href="Text.Pandoc.Sync.Format.html#MDMulti"><span class="hs-identifier">MDMulti</span></a></a><span>
+</span><a name="line-60"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDCommon"><a href="Text.Pandoc.Sync.Format.html#MDCommon"><span class="hs-identifier">MDCommon</span></a></a><span>
+</span><a name="line-61"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">)</span><span>
+</span><a name="line-62"></a><span>
+</span><a name="line-63"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">Bi</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Binary</span><span> </span><a href="Text.Pandoc.Sync.Format.html#MarkdownType"><span class="hs-identifier hs-type">MarkdownType</span></a><span>
+</span><a name="line-64"></a><span>
+</span><a name="line-65"></a><span class="hs-keyword">data</span><span> </span><a name="SlideShowType"><a href="Text.Pandoc.Sync.Format.html#SlideShowType"><span class="hs-identifier">SlideShowType</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="SSS5"><a href="Text.Pandoc.Sync.Format.html#SSS5"><span class="hs-identifier">SSS5</span></a></a><span>
+</span><a name="line-66"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSSlidy"><a href="Text.Pandoc.Sync.Format.html#SSSlidy"><span class="hs-identifier">SSSlidy</span></a></a><span>
+</span><a name="line-67"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSSlideous"><a href="Text.Pandoc.Sync.Format.html#SSSlideous"><span class="hs-identifier">SSSlideous</span></a></a><span>
+</span><a name="line-68"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSDZSlides"><a href="Text.Pandoc.Sync.Format.html#SSDZSlides"><span class="hs-identifier">SSDZSlides</span></a></a><span>
+</span><a name="line-69"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSRevealJS"><a href="Text.Pandoc.Sync.Format.html#SSRevealJS"><span class="hs-identifier">SSRevealJS</span></a></a><span>
+</span><a name="line-70"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSBeamer"><a href="Text.Pandoc.Sync.Format.html#SSBeamer"><span class="hs-identifier">SSBeamer</span></a></a><span>
+</span><a name="line-71"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">)</span><span>
+</span><a name="line-72"></a><span>
+</span><a name="line-73"></a><span class="hs-identifier hs-var">makeClassyPrisms</span><span> </span><span class="hs-char">''SlideShowType
 
 instance Bi.Binary SlideShowType
 
@@ -132,16 +135,25 @@ instance (SingI r, SingI w) =&gt; Hashable (Format r w) where
     hashWithSalt s fm = s `hashWithSalt` Bi.encode fm
 
 class AsFormat ft where
+    _FHTML      :: Prism' (ft 'True 'True ) Bool
     _FSlideShow :: Prism' (ft 'False 'True) SlideShowType
     _FPDF       :: Prism' (ft 'False 'True) PDFType
 
 instance AsFormat Format where
+    _FHTML = prism FHTML (\case FHTML t -&gt; Right t
+                                ft      -&gt; Left ft
+                         )
     _FSlideShow = prism FSlideShow (\case FSlideShow t -&gt; Right t
                                           ft           -&gt; Left ft
                                    )
     _FPDF = prism FPDF (\case FPDF t -&gt; Right t
                               ft     -&gt; Left ft
                        )
+
+asReader :: forall r' r w. SingI r' =&gt; Sing r -&gt; Traversal' (Format r' w) (Format r w)
+asReader sr f = case sing @_ @r' Si.%~ sr of
+    Si.Proved Refl -&gt; f
+    Si.Disproved _ -&gt; pure
 
 data Writer :: (Bool -&gt; Bool -&gt; Type) -&gt; Type where
     Writer :: SingI r =&gt; f r 'True -&gt; Writer f

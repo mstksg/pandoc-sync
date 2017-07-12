@@ -20,6 +20,11 @@ module Text.Pandoc.Sync.File (
   , module PS
   ) where
 
+-- import qualified Data.Text.Lazy.Encoding   as TL
+-- import qualified Data.Text.Lazy.IO         as TL
+-- import qualified Text.Pandoc.PDF           as P
+-- import qualified Text.Pandoc.SelfContained as P
+-- import qualified Text.Pandoc.UTF8          as UTF8
 import           Control.Exception
 import           Control.Lens hiding          ((<.>))
 import           Control.Monad
@@ -38,20 +43,16 @@ import           System.Directory
 import           System.FilePath
 import           System.IO.Error
 import           Text.Pandoc.Sync.Format      as PS
+import           Text.Pandoc.Sync.Writer
 import           Text.Printf
 import qualified Data.Binary                  as Bi
 import qualified Data.ByteString.Lazy         as B
 import qualified Data.Map                     as M
 import qualified Data.OrdPSQ                  as PS
-import qualified Data.Text.Lazy.IO            as TL
-import qualified Data.Text.Lazy.Encoding      as TL
 import qualified Text.Pandoc                  as P
 import qualified Text.Pandoc.MediaBag         as P
-import qualified Text.Pandoc.PDF              as P
 import qualified Text.Pandoc.Readers.LaTeX    as P
-import qualified Text.Pandoc.SelfContained    as P
 import qualified Text.Pandoc.Shared           as P
-import qualified Text.Pandoc.UTF8             as UTF8
 
 data SyncFileData :: Bool -> Type where
     SyncFileData :: { _sfdFormat     :: Format r 'True
@@ -63,9 +64,6 @@ data SyncFileData :: Bool -> Type where
   deriving (Generic, Show)
 
 makeLenses ''SyncFileData
-
-sfdWO :: SyncFileData r -> P.WriterOptions
-sfdWO sfd = writerOptions (sfd ^. sfdFormat) (sfd ^. sfdWriterOpts)
 
 instance SingI r => Bi.Binary (SyncFileData r)
 
@@ -155,7 +153,7 @@ runSyncFile s0 = do
                       (show (sfd ^. sfdLastSync))
                       (show modTime)
       epd <- liftIO $ readPandoc (sfd ^. sfdFormat)
-                                 (sfd ^. sfdReaderOpts . _Has . to readerOptions)
+                                 (sfd ^. sfdReaderOpts . _Has . to fromReaderOptions)
                                  fp
       MaybeT . return $ case epd of
         Right (newPd, _) -> case s0 ^? sfLastUpdate . _Just . _2 of
@@ -189,35 +187,43 @@ runSyncFile s0 = do
     updateSource :: UTCTime -> Bool -> P.Pandoc -> FilePath -> SyncFileData r -> IO (SyncFileData r)
     updateSource st skipWrite pd fp sfd = do
       createDirectoryIfMissing True (takeDirectory fp)
-      unless skipWrite $ case formatWriter (sfd ^. sfdFormat) of
-        P.IOStringWriter f ->
-          UTF8.writeFile fp                =<< f (sfdWO sfd) pd
-        P.IOByteStringWriter f ->
-          B.writeFile (UTF8.encodePath fp) =<< f (sfdWO sfd) pd
-        P.PureStringWriter f -> case sfd ^. sfdFormat of
-          FPDF pdft -> do
-            let eng = pdfEngine pdft
-            -- TODO: handle lack of prog?
-            mbPdfProg <- findExecutable eng
-            print $ has _Just mbPdfProg
-            let wo = sfdWO sfd
-            res <- P.makePDF eng f wo pd
-            putStrLn $ "hey pdf! " ++ fp
-            -- TODO: handle bad res?
-            case res of
-              Right res' -> B.writeFile (UTF8.encodePath fp) res'
-              Left  err  -> do
-                putStrLn "Failed pdf?"
-                TL.putStrLn . TL.decodeUtf8 $ err
-                -- B.writeFile (UTF8.encodePath fp) err
-          _ -> do
-              let res = f (sfdWO sfd) pd
-              out <- if htmlFormat (sfd ^. sfdFormat)
-                 then P.makeSelfContained (sfdWO sfd) res
-                 else return res
-              UTF8.writeFile fp out
-
+      unless skipWrite $
+        writePandoc (sfd ^. sfdFormat) pd (sfd ^. sfdWriterOpts) fp
       return $ sfd & sfdLastSync .~ Just st
+
+    -- :: Format r 'True
+    -- -> P.Pandoc
+    -- -> WriterOptions
+    -- -> FilePath
+
+      -- $ case formatWriter (sfd ^. sfdFormat) of
+      --   P.IOStringWriter f ->
+      --     UTF8.writeFile fp                =<< f (sfdWO sfd) pd
+      --   P.IOByteStringWriter f ->
+      --     B.writeFile (UTF8.encodePath fp) =<< f (sfdWO sfd) pd
+      --   P.PureStringWriter f -> case sfd ^. sfdFormat of
+      --     FPDF pdft -> do
+      --       let eng = pdfEngine pdft
+      --       -- TODO: handle lack of prog?
+      --       mbPdfProg <- findExecutable eng
+      --       print $ has _Just mbPdfProg
+      --       let wo = sfdWO sfd
+      --       res <- P.makePDF eng f wo pd
+      --       putStrLn $ "hey pdf! " ++ fp
+      --       -- TODO: handle bad res?
+      --       case res of
+      --         Right res' -> B.writeFile (UTF8.encodePath fp) res'
+      --         Left  err  -> do
+      --           putStrLn "Failed pdf?"
+      --           TL.putStrLn . TL.decodeUtf8 $ err
+      --           -- B.writeFile (UTF8.encodePath fp) err
+      --     _ -> do
+      --         let res = f (sfdWO sfd) pd
+      --         out <- if htmlFormat (sfd ^. sfdFormat)
+      --            then P.makeSelfContained (sfdWO sfd) res
+      --            else return res
+      --         UTF8.writeFile fp out
+
 
 -- discoverAndRunSync :: Sync -> IO Sync
 -- discoverAndRunSync = runSync <=< discoverSync
@@ -255,26 +261,6 @@ queueToMap
 queueToMap f = M.fromList . map g . PS.toList
   where
     g (k, p, v) = (k, f p v)
-
--- TODO: customizable latex engine
-pdfEngine
-    :: PDFType
-    -> String
-pdfEngine = \case
-    PTLaTeX   -> "pdflatex"
-    PTBeamer  -> "pdflatex"
-    PTContext -> "context"
-    PTHTML5   -> "wkhtmltopdf"
-
-htmlFormat
-    :: Format r w
-    -> Bool
-htmlFormat = \case
-    FHTML _ -> True
-    FSlideShow ss -> case ss of
-      SSBeamer -> False
-      _        -> True
-    _       -> False
 
 readPandoc
     :: Format 'True w

@@ -1,8 +1,9 @@
 {-# LANGUAGE OverloadedLists #-}
 
-import           Text.Pandoc.Sync
-import           Control.Monad
 import           Control.Lens
+import           Control.Monad
+import           Data.Default
+import           Text.Pandoc.Sync
 
 sc :: SyncConfig
 sc = SC (DMParallelTree ext)
@@ -16,11 +17,11 @@ sc = SC (DMParallelTree ext)
           ,("pdf"     , "pdf" )
           ,("latex"   , "tex" )
           ]
-    fms = [("md"  , Writer $ FormatOptions (FMarkdown MDPandoc) (Has RO) (Has WO))
-          ,("txt" , Writer $ FormatOptions FPlain               Hasn't   (Has WO))
-          ,("html", Writer $ FormatOptions (FHTML True)         (Has RO) (Has WO))
-          ,("pdf" , Writer $ FormatOptions (FPDF PTLaTeX)       Hasn't   (Has WO))
-          ,("tex" , Writer $ FormatOptions FLaTeX               (Has RO) (Has WO))
+    fms = [("md"  , Writer $ FormatOptions (FMarkdown MDPandoc) def def)
+          ,("txt" , Writer $ FormatOptions FPlain               def def)
+          ,("html", Writer $ FormatOptions (FHTML True)         def def)
+          ,("pdf" , Writer $ FormatOptions (FPDF PTLaTeX)       def def)
+          ,("tex" , Writer $ FormatOptions FLaTeX               def def)
           ]
 
 main :: IO ()

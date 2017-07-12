@@ -17,9 +17,9 @@ module Text.Pandoc.Sync.Format (
   , Format(..)
   , Writer(..)
   , ReaderOptions(..)
-  , readerOptions
-  , WriterOptions(..)
-  , writerOptions
+  , fromReaderOptions
+  , WriterOptions(..), HasWriterOptions(..)
+  -- , writerOptions
   , formatReader
   , formatWriter
   , FormatOptions(..)
@@ -84,7 +84,8 @@ data Format :: Bool -> Bool -> Type where
                   -> Format 'True  'True
     FRST          :: Format 'True  'True
     FMediaWiki    :: Format 'True  'True
-    FDocBook      :: Format 'True  'True
+    FDocBook      :: Bool
+                  -> Format 'True  'True
     FOPML         :: Format 'True  'True
     FOrg          :: Format 'True  'True
     FTextile      :: Format 'True  'True
@@ -108,10 +109,12 @@ data Format :: Bool -> Bool -> Type where
     FMan          :: Format 'False 'True
     FPlain        :: Format 'False 'True
     FDokuWiki     :: Format 'False 'True
+    FZimWiki      :: Format 'False 'True
     FASCIIDoc     :: Format 'False 'True
     FTEI          :: Format 'False 'True
     FPDF          :: PDFType
                   -> Format 'False 'True
+    FRTF          :: Format 'False 'True
 
 deriving instance Show (Format r w)
 
@@ -129,20 +132,6 @@ instance (SingI r, SingI w) => Hashable (Format r w) where
 data Writer :: (Bool -> Bool -> Type) -> Type where
     Writer :: SingI r => f r 'True -> Writer f
 
-instance Bi.Binary (Writer FormatOptions) where
-    get = do
-      r <- Bi.get @Bool
-      withSomeSing @_ @Bool r $ \(sr :: Sing r) -> withSingI sr $ do
-        Writer @_ @r <$> Bi.get
-    put = \case
-      Writer (fo :: FormatOptions r 'True) -> do
-        Bi.put (fromSing (sing @_ @r))
-        Bi.put fo
-
-instance Hashable (Writer FormatOptions) where
-    hashWithSalt s = \case
-      Writer fo -> s `hashWithSalt` fo
-
 data SomeFormat :: Type where
     SomeFormat :: Sing r -> Sing w -> Format r w -> SomeFormat
 
@@ -158,7 +147,7 @@ instance Bi.Binary SomeFormat where
                             ,(2, SomeFormat sing sing . FMarkdown <$> Bi.get  )
                             ,(3, return $ SomeFormat sing sing FRST           )
                             ,(4, return $ SomeFormat sing sing FMediaWiki     )
-                            ,(5, return $ SomeFormat sing sing FDocBook       )
+                            ,(5, SomeFormat sing sing . FDocBook <$> Bi.get   )
                             ,(6, return $ SomeFormat sing sing FOPML          )
                             ,(7, return $ SomeFormat sing sing FOrg           )
                             ,(8, return $ SomeFormat sing sing FTextile       )
@@ -182,6 +171,8 @@ instance Bi.Binary SomeFormat where
                             ,(26, return $ SomeFormat sing sing FASCIIDoc     )
                             ,(27, return $ SomeFormat sing sing FTEI          )
                             ,(28, SomeFormat sing sing . FPDF <$> Bi.get      )
+                            ,(29, return $ SomeFormat sing sing FZimWiki      )
+                            ,(30, return $ SomeFormat sing sing FRTF          )
                             ]
     put (SomeFormat _ _ ft) = case ft of
       FNative       -> Bi.put @Int 0
@@ -189,7 +180,7 @@ instance Bi.Binary SomeFormat where
       FMarkdown mt  -> Bi.put @Int 2 *> Bi.put mt
       FRST          -> Bi.put @Int 3
       FMediaWiki    -> Bi.put @Int 4
-      FDocBook      -> Bi.put @Int 5
+      FDocBook v    -> Bi.put @Int 5 *> Bi.put v
       FOPML         -> Bi.put @Int 6
       FOrg          -> Bi.put @Int 7
       FTextile      -> Bi.put @Int 8
@@ -213,6 +204,8 @@ instance Bi.Binary SomeFormat where
       FASCIIDoc     -> Bi.put @Int 26
       FTEI          -> Bi.put @Int 27
       FPDF t        -> Bi.put @Int 28 *> Bi.put t
+      FZimWiki      -> Bi.put @Int 29
+      FRTF          -> Bi.put @Int 30
 
 instance Hashable SomeFormat where
     hashWithSalt s sf = s `hashWithSalt` Bi.encode sf
@@ -258,9 +251,10 @@ instance Hashable a => Hashable (HasIf b a) where
 data ReaderOptions = RO
     deriving (Show, Eq, Ord, Generic)
 
--- data WriterOptions = WO { _woStandalone :: Bool }
-data WriterOptions = WO
+data WriterOptions = WO { _woStandalone :: Bool }
     deriving (Show, Eq, Ord, Generic)
+
+makeClassy ''WriterOptions
 
 instance Bi.Binary ReaderOptions
 instance Bi.Binary WriterOptions
@@ -269,7 +263,7 @@ instance Default ReaderOptions where
     def = RO
 
 instance Default WriterOptions where
-    def = WO
+    def = WO False
 
 instance Hashable ReaderOptions
 instance Hashable WriterOptions
@@ -291,11 +285,26 @@ instance (SingI r, SingI w) => Hashable (FormatOptions r w) where
                           `hashWithSalt` (fo ^. foReaderOpts)
                           `hashWithSalt` (fo ^. foWriterOpts)
 
-readerOptions :: ReaderOptions -> P.ReaderOptions
-readerOptions _ = def
+instance Bi.Binary (Writer FormatOptions) where
+    get = do
+      r <- Bi.get @Bool
+      withSomeSing @_ @Bool r $ \(sr :: Sing r) -> withSingI sr $ do
+        Writer @_ @r <$> Bi.get
+    put = \case
+      Writer (fo :: FormatOptions r 'True) -> do
+        Bi.put (fromSing (sing @_ @r))
+        Bi.put fo
 
-writerOptions :: Format r w -> WriterOptions -> P.WriterOptions
-writerOptions _ _ = def
+instance Hashable (Writer FormatOptions) where
+    hashWithSalt s = \case
+      Writer fo -> s `hashWithSalt` fo
+
+
+fromReaderOptions :: ReaderOptions -> P.ReaderOptions
+fromReaderOptions _ = def
+
+-- writerOptions :: Format r w -> WriterOptions -> P.WriterOptions
+-- writerOptions _ _ = def
 
 pdfFormat :: PDFType -> Writer Format
 pdfFormat = \case
@@ -329,7 +338,7 @@ readerString = \case
       MDCommon    -> "commonmark"
     FRST          -> "rst"
     FMediaWiki    -> "mediawiki"
-    FDocBook      -> "docbook"
+    FDocBook _    -> "docbook"
     FOPML         -> "opml"
     FOrg          -> "org"
     FTextile      -> "textile"
@@ -355,7 +364,7 @@ writerString = \case
       MDCommon    -> "commonmark"
     FRST          -> "rst"
     FMediaWiki    -> "mediawiki"
-    FDocBook      -> "docbook"
+    FDocBook five -> "docbook" ++ if five then "5" else ""
     FOPML         -> "opml"
     FOrg          -> "org"
     FTextile      -> "textile"
@@ -384,6 +393,8 @@ writerString = \case
     FTEI          -> "tei"
     -- TODO: is this right?
     FPDF t        -> case pdfFormat t of Writer ft -> writerString ft
+    FZimWiki      -> "zimwiki"
+    FRTF          -> "frtf"
 
 -- formatString :: Format r w -> String
 -- formatString = \case

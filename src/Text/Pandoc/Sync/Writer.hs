@@ -130,6 +130,8 @@ mkWriterOptions ft wo bag = do
                , P.writerTableOfContents = wo ^. woTOC
                , P.writerHTMLMathMethod  = wo ^. woMathMethod
                , P.writerHtml5           = getAny $ ft ^. asReader STrue . _FHTML . _Unwrapped
+               , P.writerBeamer          = False        -- it's false in the actual thing
+               -- , P.writerBeamer          = has (asReader SFalse . _FSlideShow . _SSBeamer) ft
                , P.writerMediaBag        = bag
                }
 
@@ -138,12 +140,7 @@ mkWriterOptions ft wo bag = do
               || not (isTextFormat ft)
               || case ft of FPDF _ -> True; _ -> False
 
---   let writerOptions = def { writerTemplate         = templ,
---                             writerVariables        = variables'',
---                             writerTabStop          = tabStop,
---                             writerTableOfContents  = toc,
---                             writerHTMLMathMethod   = mathMethod,
---                             writerIncremental      = incremental,
+--   let writerOptions = def { writerIncremental      = incremental,
 --                             writerCiteMethod       = citeMethod,
 --                             writerIgnoreNotes      = False,
 --                             writerNumberSections   = numberSections,
@@ -158,11 +155,9 @@ mkWriterOptions ft wo bag = do
 --                             writerIdentifierPrefix = idPrefix,
 --                             writerSourceURL        = sourceURL,
 --                             writerUserDataDir      = datadir,
---                             writerHtml5            = html5,
 --                             writerHtmlQTags        = htmlQTags,
 --                             writerTopLevelDivision = topLevelDivision,
 --                             writerListings         = listings,
---                             writerBeamer           = False,
 --                             writerSlideLevel       = slideLevel,
 --                             writerHighlight        = highlight,
 --                             writerHighlightStyle   = highlightStyle,
@@ -175,7 +170,6 @@ mkWriterOptions ft wo bag = do
 --                             writerTOCDepth         = epubTOCDepth,
 --                             writerReferenceODT     = referenceODT,
 --                             writerReferenceDocx    = referenceDocx,
---                             writerMediaBag         = media,
 --                             writerVerbose          = verbose,
 --                             writerLaTeXArgs        = latexEngineArgs
 --                           }

@@ -18,6 +18,7 @@ module Text.Pandoc.Sync.Format (
   , SlideShowType(..), AsSlideShowType(..)
   , PDFType(..)
   , Format(..), AsFormat(..)
+  , SomeFormat(..), someFormat
   , asReader
   , Writer(..)
   , ReaderOptions(..)
@@ -37,6 +38,7 @@ module Text.Pandoc.Sync.Format (
   , _Has
   , _Hasn't
   , hasIfMaybe
+  , allFormats
   ) where
 
 import           Control.Applicative
@@ -62,7 +64,7 @@ data MarkdownType = MDPandoc
                   | MDGithub
                   | MDMulti
                   | MDCommon
-  deriving (Show, Generic)
+  deriving (Show, Generic, Eq, Ord, Enum, Bounded)
 
 instance Bi.Binary MarkdownType
 
@@ -72,7 +74,7 @@ data SlideShowType = SSS5
                    | SSDZSlides
                    | SSRevealJS
                    | SSBeamer
-  deriving (Show, Generic)
+  deriving (Show, Generic, Eq, Ord, Enum, Bounded)
 
 makeClassyPrisms ''SlideShowType
 
@@ -82,7 +84,7 @@ data PDFType = PTLaTeX
              | PTBeamer
              | PTContext
              | PTHTML5
-  deriving (Show, Generic)
+  deriving (Show, Generic, Eq, Ord, Enum, Bounded)
 
 instance Bi.Binary PDFType
 
@@ -137,7 +139,7 @@ instance (SingI r, SingI w) => Bi.Binary (Format r w) where
       Si.Proved Refl <- return $ r Si.%~ (sing @_ @r)
       Si.Proved Refl <- return $ w Si.%~ (sing @_ @w)
       return ft
-    put = Bi.put . SomeFormat sing sing
+    put = Bi.put . someFormat
 
 instance (SingI r, SingI w) => Hashable (Format r w) where
     hashWithSalt s fm = s `hashWithSalt` Bi.encode fm
@@ -176,6 +178,15 @@ instance FromJSON (Writer Format) where
 data SomeFormat :: Type where
     SomeFormat :: Sing r -> Sing w -> Format r w -> SomeFormat
 
+someFormat :: (SingI r, SingI w) => Format r w -> SomeFormat
+someFormat = SomeFormat sing sing
+
+instance Show SomeFormat where
+    showsPrec d (SomeFormat _ _ ft) = showParen (d > app_prec) $
+        showString "SomeFormat " . showsPrec (app_prec + 1) ft
+      where
+        app_prec = 10
+
 instance Bi.Binary P.EPUBVersion
 
 instance Bi.Binary SomeFormat where
@@ -183,39 +194,39 @@ instance Bi.Binary SomeFormat where
         i <- Bi.get
         fromMaybe (error "Corrupted SomeFormat") $ IM.lookup i ftmap
       where
-        ftmap = IM.fromList [(0, return $ SomeFormat sing sing FNative          )
-                            ,(1, return $ SomeFormat sing sing FJSON            )
-                            ,(2, SomeFormat sing sing . FMarkdown <$> Bi.get    )
-                            ,(3, return $ SomeFormat sing sing FRST             )
-                            ,(4, return $ SomeFormat sing sing FMediaWiki       )
-                            ,(5, SomeFormat sing sing . FDocBook <$> Bi.get     )
-                            ,(6, return $ SomeFormat sing sing FOPML            )
-                            ,(7, return $ SomeFormat sing sing FOrg             )
-                            ,(8, return $ SomeFormat sing sing FTextile         )
-                            ,(9, SomeFormat sing sing . FHTML <$> Bi.get        )
-                            ,(10, return $ SomeFormat sing sing FLaTeX          )
-                            ,(11, return $ SomeFormat sing sing FHaddock        )
-                            ,(12, return $ SomeFormat sing sing FTWiki          )
-                            ,(13, return $ SomeFormat sing sing FDocX           )
-                            ,(14, return $ SomeFormat sing sing FODT            )
-                            ,(15, return $ SomeFormat sing sing FT2T            )
-                            ,(16, SomeFormat sing sing . FEPub <$> Bi.get       )
-                            ,(17, return $ SomeFormat sing sing FFictionBook2   )
-                            ,(18, return $ SomeFormat sing sing FICML           )
-                            ,(19, SomeFormat sing sing . FSlideShow <$> Bi.get  )
-                            ,(20, return $ SomeFormat sing sing FOpenDocument   )
-                            ,(21, return $ SomeFormat sing sing FContext        )
-                            ,(22, return $ SomeFormat sing sing FTexinfo        )
-                            ,(23, return $ SomeFormat sing sing FMan            )
-                            ,(24, return $ SomeFormat sing sing FPlain          )
-                            ,(25, return $ SomeFormat sing sing FDokuWiki       )
-                            ,(26, return $ SomeFormat sing sing FASCIIDoc       )
-                            ,(27, return $ SomeFormat sing sing FTEI            )
-                            ,(28, SomeFormat sing sing . FPDF <$> Bi.get        )
-                            ,(29, return $ SomeFormat sing sing FZimWiki        )
-                            ,(30, return $ SomeFormat sing sing FRTF            )
-                            ,(31, SomeFormat sing sing . FMkWriteOnly <$> Bi.get)
-                            ,(32, SomeFormat sing sing . FMkReadOnly <$> Bi.get )
+        ftmap = IM.fromList [(0, return $ someFormat FNative          )
+                            ,(1, return $ someFormat FJSON            )
+                            ,(2, someFormat . FMarkdown <$> Bi.get    )
+                            ,(3, return $ someFormat FRST             )
+                            ,(4, return $ someFormat FMediaWiki       )
+                            ,(5, someFormat . FDocBook <$> Bi.get     )
+                            ,(6, return $ someFormat FOPML            )
+                            ,(7, return $ someFormat FOrg             )
+                            ,(8, return $ someFormat FTextile         )
+                            ,(9, someFormat . FHTML <$> Bi.get        )
+                            ,(10, return $ someFormat FLaTeX          )
+                            ,(11, return $ someFormat FHaddock        )
+                            ,(12, return $ someFormat FTWiki          )
+                            ,(13, return $ someFormat FDocX           )
+                            ,(14, return $ someFormat FODT            )
+                            ,(15, return $ someFormat FT2T            )
+                            ,(16, someFormat . FEPub <$> Bi.get       )
+                            ,(17, return $ someFormat FFictionBook2   )
+                            ,(18, return $ someFormat FICML           )
+                            ,(19, someFormat . FSlideShow <$> Bi.get  )
+                            ,(20, return $ someFormat FOpenDocument   )
+                            ,(21, return $ someFormat FContext        )
+                            ,(22, return $ someFormat FTexinfo        )
+                            ,(23, return $ someFormat FMan            )
+                            ,(24, return $ someFormat FPlain          )
+                            ,(25, return $ someFormat FDokuWiki       )
+                            ,(26, return $ someFormat FASCIIDoc       )
+                            ,(27, return $ someFormat FTEI            )
+                            ,(28, someFormat . FPDF <$> Bi.get        )
+                            ,(29, return $ someFormat FZimWiki        )
+                            ,(30, return $ someFormat FRTF            )
+                            ,(31, someFormat . FMkWriteOnly <$> Bi.get)
+                            ,(32, someFormat . FMkReadOnly <$> Bi.get )
                             ]
     put (SomeFormat _ _ ft) = case ft of
       FNative        -> Bi.put @Int 0
@@ -253,7 +264,9 @@ instance Bi.Binary SomeFormat where
       FMkReadOnly f  -> Bi.put @Int 32 *> Bi.put f
 
 instance Hashable SomeFormat where
-    hashWithSalt s sf = s `hashWithSalt` Bi.encode sf
+    hashWithSalt s (SomeFormat sr sw ft) = withSingI sr $
+                                           withSingI sw $
+      hashWithSalt s ft
 
 instance FromJSON SomeFormat where
     parseJSON = undefined
@@ -542,3 +555,67 @@ writerString = \case
 --     FTEI          -> "tei"
 --     FTWiki        -> "twiki"
 --     FT2T          -> "t2t"
+
+allFormats :: [SomeFormat]
+allFormats = concat [ all'
+                    , someFormat . FMkWriteOnly <$> mapMaybe rw all'
+                    , someFormat . FMkReadOnly  <$> mapMaybe rw all'
+                    ]
+  where
+    all' = concat
+      [ [ someFormat FNative
+        , someFormat FJSON
+        ]
+      , someFormat . FMarkdown <$> [minBound .. maxBound]
+      , [ someFormat FRST
+        , someFormat FMediaWiki
+        ]
+      , someFormat . FDocBook <$> [minBound .. maxBound]
+      , [ someFormat FOPML
+        , someFormat FOrg
+        , someFormat FTextile
+        ]
+      , someFormat . FHTML <$> [minBound .. maxBound]
+      , [ someFormat FLaTeX
+        , someFormat FHaddock
+        , someFormat FTWiki
+        , someFormat FDocX
+        , someFormat FODT
+        , someFormat FT2T
+        ]
+      , someFormat . FEPub <$> [P.EPUB2, P.EPUB3]
+      , [ someFormat FFictionBook2
+        , someFormat FICML
+        ]
+      , someFormat . FSlideShow <$> [minBound .. maxBound]
+      , [ someFormat FOpenDocument
+        , someFormat FContext
+        , someFormat FTexinfo
+        , someFormat FMan
+        , someFormat FPlain
+        , someFormat FDokuWiki
+        , someFormat FZimWiki
+        , someFormat FASCIIDoc
+        , someFormat FTEI
+        ]
+      , someFormat . FPDF <$> [minBound .. maxBound]
+      , [ someFormat FRTF
+        ]
+      ]
+    rw = filterSomeFormat STrue STrue
+
+filterSomeFormat
+    :: Sing r
+    -> Sing w
+    -> SomeFormat
+    -> Maybe (Format r w)
+filterSomeFormat sr sw (SomeFormat sr' sw' ft) = do
+    Refl <- decideMaybe $ sr Si.%~ sr'
+    Refl <- decideMaybe $ sw Si.%~ sw'
+    return ft
+  where
+    decideMaybe :: Si.Decision a -> Maybe a
+    decideMaybe = \case
+      Si.Proved x    -> Just x
+      Si.Disproved _ -> Nothing
+

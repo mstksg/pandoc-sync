@@ -23,6 +23,8 @@ module Text.Pandoc.Sync (
 import           Control.Exception
 import           Control.Lens
 import           Control.Monad
+import           Data.Aeson
+import           Data.Aeson.Types
 import           Data.Dependent.Sum
 import           Data.Hashable
 import           Data.List
@@ -63,10 +65,10 @@ makeLenses ''FileDiscover
 
 instance Bi.Binary FileDiscover
 
-data SyncConfig = SC { _scDiscoverMode    :: DiscoverMode
-                     , _scDiscoverFormats :: M.Map FileExt (Writer FormatOptions)
-                     , _scRoot            :: FilePath
-                     , _scCache           :: FilePath
+data SyncConfig = SC { _scDiscoverMode :: DiscoverMode
+                     , _scFormats      :: M.Map FileExt (Writer FormatOptions)
+                     , _scRoot         :: FilePath
+                     , _scCache        :: FilePath
                      }
   deriving Generic
 
@@ -77,9 +79,12 @@ instance Hashable SyncConfig where
     hashWithSalt s sc = s `hashWithSalt` (sc ^. scDiscoverMode)
                           `hashWithSalt` (sc ^. scRoot)
                           `hashWithSalt` (sc ^. scCache)
-                          `hashWithSalt` M.toList (sc ^. scDiscoverFormats)
+                          `hashWithSalt` M.toList (sc ^. scFormats)
 
     
+-- instance FromJSON SyncConfig where
+--     parseJSON = genericParseJSON defaultOptions
+--                     { fieldLabelModifier = camelTo2 '-' . drop 3 }
 
 data Sync = Sync { _syncFiles    :: M.Map FileDiscover SyncFile
                  , _syncConfHash :: Int
@@ -95,7 +100,7 @@ initSync sc = do
     createDirectoryIfMissing True (sc ^. scRoot)
     res <- flip Sync (hash sc) <$> case sc ^. scDiscoverMode of
       DMSameDir          ->
-        M.mapWithKey mkSF <$> discoverAll (sc ^. scDiscoverFormats) (sc ^. scRoot)
+        M.mapWithKey mkSF <$> discoverAll (sc ^. scFormats) (sc ^. scRoot)
       DMParallelTree rts -> fmap (M.mapWithKey (fillParallel rts) . join traceShow . M.unionsWith mergeSF)
                           . traverse (uncurry mkParallel)
                           . M.toList
@@ -104,7 +109,7 @@ initSync sc = do
     return res
   where
     mkParallel :: FilePath -> FileExt -> IO (M.Map FileDiscover SyncFile)
-    mkParallel rt ex = case sc ^? scDiscoverFormats . ix ex of
+    mkParallel rt ex = case sc ^? scFormats . ix ex of
       -- TODO: handle bad format?
       Nothing -> return M.empty
       Just wf ->
@@ -125,7 +130,7 @@ initSync sc = do
                . M.toList
                $ rts
         go :: FilePath -> FileExt -> Maybe (FilePath, DSum Sing SyncFileData)
-        go rt ex = sc ^? scDiscoverFormats
+        go rt ex = sc ^? scFormats
                        . ix ex
                        . to (\case Writer fo ->
                                     let sfd = sing :=> SyncFileData (fo ^. foFormat)
@@ -142,7 +147,7 @@ initSync sc = do
       where
         extMap = M.intersectionWith (const go)
                                     (M.fromSet (const ()) exs)
-                                    (sc ^. scDiscoverFormats)
+                                    (sc ^. scFormats)
         mkFileName :: FileExt -> FilePath
         mkFileName fe = (fd ^. fdBaseDir) </> (fd ^. fdFileName) -<.> fe
         go :: Writer FormatOptions -> DSum Sing SyncFileData

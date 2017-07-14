@@ -39,6 +39,8 @@ module Text.Pandoc.Sync.Format (
   ) where
 
 import           Control.Lens
+import           Data.Aeson
+import           Data.Aeson.Types
 import           Data.Default
 import           Data.Hashable
 import           Data.Kind
@@ -120,6 +122,10 @@ data Format :: Bool -> Bool -> Type where
     FPDF          :: PDFType
                   -> Format 'False 'True
     FRTF          :: Format 'False 'True
+    FMkWriteOnly  :: Format 'True  'True
+                  -> Format 'False 'True
+    FMkReadOnly   :: Format 'True  'True
+                  -> Format 'True  'False
 
 deriving instance Show (Format r w)
 
@@ -168,70 +174,74 @@ instance Bi.Binary SomeFormat where
         i <- Bi.get
         fromMaybe (error "Corrupted SomeFormat") $ IM.lookup i ftmap
       where
-        ftmap = IM.fromList [(0, return $ SomeFormat sing sing FNative        )
-                            ,(1, return $ SomeFormat sing sing FJSON          )
-                            ,(2, SomeFormat sing sing . FMarkdown <$> Bi.get  )
-                            ,(3, return $ SomeFormat sing sing FRST           )
-                            ,(4, return $ SomeFormat sing sing FMediaWiki     )
-                            ,(5, SomeFormat sing sing . FDocBook <$> Bi.get   )
-                            ,(6, return $ SomeFormat sing sing FOPML          )
-                            ,(7, return $ SomeFormat sing sing FOrg           )
-                            ,(8, return $ SomeFormat sing sing FTextile       )
-                            ,(9, SomeFormat sing sing . FHTML <$> Bi.get      )
-                            ,(10, return $ SomeFormat sing sing FLaTeX        )
-                            ,(11, return $ SomeFormat sing sing FHaddock      )
-                            ,(12, return $ SomeFormat sing sing FTWiki        )
-                            ,(13, return $ SomeFormat sing sing FDocX         )
-                            ,(14, return $ SomeFormat sing sing FODT          )
-                            ,(15, return $ SomeFormat sing sing FT2T          )
-                            ,(16, SomeFormat sing sing . FEPub <$> Bi.get     )
-                            ,(17, return $ SomeFormat sing sing FFictionBook2 )
-                            ,(18, return $ SomeFormat sing sing FICML         )
-                            ,(19, SomeFormat sing sing . FSlideShow <$> Bi.get)
-                            ,(20, return $ SomeFormat sing sing FOpenDocument )
-                            ,(21, return $ SomeFormat sing sing FContext      )
-                            ,(22, return $ SomeFormat sing sing FTexinfo      )
-                            ,(23, return $ SomeFormat sing sing FMan          )
-                            ,(24, return $ SomeFormat sing sing FPlain        )
-                            ,(25, return $ SomeFormat sing sing FDokuWiki     )
-                            ,(26, return $ SomeFormat sing sing FASCIIDoc     )
-                            ,(27, return $ SomeFormat sing sing FTEI          )
-                            ,(28, SomeFormat sing sing . FPDF <$> Bi.get      )
-                            ,(29, return $ SomeFormat sing sing FZimWiki      )
-                            ,(30, return $ SomeFormat sing sing FRTF          )
+        ftmap = IM.fromList [(0, return $ SomeFormat sing sing FNative          )
+                            ,(1, return $ SomeFormat sing sing FJSON            )
+                            ,(2, SomeFormat sing sing . FMarkdown <$> Bi.get    )
+                            ,(3, return $ SomeFormat sing sing FRST             )
+                            ,(4, return $ SomeFormat sing sing FMediaWiki       )
+                            ,(5, SomeFormat sing sing . FDocBook <$> Bi.get     )
+                            ,(6, return $ SomeFormat sing sing FOPML            )
+                            ,(7, return $ SomeFormat sing sing FOrg             )
+                            ,(8, return $ SomeFormat sing sing FTextile         )
+                            ,(9, SomeFormat sing sing . FHTML <$> Bi.get        )
+                            ,(10, return $ SomeFormat sing sing FLaTeX          )
+                            ,(11, return $ SomeFormat sing sing FHaddock        )
+                            ,(12, return $ SomeFormat sing sing FTWiki          )
+                            ,(13, return $ SomeFormat sing sing FDocX           )
+                            ,(14, return $ SomeFormat sing sing FODT            )
+                            ,(15, return $ SomeFormat sing sing FT2T            )
+                            ,(16, SomeFormat sing sing . FEPub <$> Bi.get       )
+                            ,(17, return $ SomeFormat sing sing FFictionBook2   )
+                            ,(18, return $ SomeFormat sing sing FICML           )
+                            ,(19, SomeFormat sing sing . FSlideShow <$> Bi.get  )
+                            ,(20, return $ SomeFormat sing sing FOpenDocument   )
+                            ,(21, return $ SomeFormat sing sing FContext        )
+                            ,(22, return $ SomeFormat sing sing FTexinfo        )
+                            ,(23, return $ SomeFormat sing sing FMan            )
+                            ,(24, return $ SomeFormat sing sing FPlain          )
+                            ,(25, return $ SomeFormat sing sing FDokuWiki       )
+                            ,(26, return $ SomeFormat sing sing FASCIIDoc       )
+                            ,(27, return $ SomeFormat sing sing FTEI            )
+                            ,(28, SomeFormat sing sing . FPDF <$> Bi.get        )
+                            ,(29, return $ SomeFormat sing sing FZimWiki        )
+                            ,(30, return $ SomeFormat sing sing FRTF            )
+                            ,(31, SomeFormat sing sing . FMkWriteOnly <$> Bi.get)
+                            ,(32, SomeFormat sing sing . FMkReadOnly <$> Bi.get )
                             ]
     put (SomeFormat _ _ ft) = case ft of
-      FNative       -> Bi.put @Int 0
-      FJSON         -> Bi.put @Int 1
-      FMarkdown mt  -> Bi.put @Int 2 *> Bi.put mt
-      FRST          -> Bi.put @Int 3
-      FMediaWiki    -> Bi.put @Int 4
-      FDocBook v    -> Bi.put @Int 5 *> Bi.put v
-      FOPML         -> Bi.put @Int 6
-      FOrg          -> Bi.put @Int 7
-      FTextile      -> Bi.put @Int 8
-      FHTML five    -> Bi.put @Int 9 *> Bi.put five
-      FLaTeX        -> Bi.put @Int 10
-      FHaddock      -> Bi.put @Int 11
-      FTWiki        -> Bi.put @Int 12
-      FDocX         -> Bi.put @Int 13
-      FODT          -> Bi.put @Int 14
-      FT2T          -> Bi.put @Int 15
-      FEPub v       -> Bi.put @Int 16 *> Bi.put v
-      FFictionBook2 -> Bi.put @Int 17
-      FICML         -> Bi.put @Int 18
-      FSlideShow t  -> Bi.put @Int 19 *> Bi.put t
-      FOpenDocument -> Bi.put @Int 20
-      FContext      -> Bi.put @Int 21
-      FTexinfo      -> Bi.put @Int 22
-      FMan          -> Bi.put @Int 23
-      FPlain        -> Bi.put @Int 24
-      FDokuWiki     -> Bi.put @Int 25
-      FASCIIDoc     -> Bi.put @Int 26
-      FTEI          -> Bi.put @Int 27
-      FPDF t        -> Bi.put @Int 28 *> Bi.put t
-      FZimWiki      -> Bi.put @Int 29
-      FRTF          -> Bi.put @Int 30
+      FNative        -> Bi.put @Int 0
+      FJSON          -> Bi.put @Int 1
+      FMarkdown mt   -> Bi.put @Int 2 *> Bi.put mt
+      FRST           -> Bi.put @Int 3
+      FMediaWiki     -> Bi.put @Int 4
+      FDocBook v     -> Bi.put @Int 5 *> Bi.put v
+      FOPML          -> Bi.put @Int 6
+      FOrg           -> Bi.put @Int 7
+      FTextile       -> Bi.put @Int 8
+      FHTML five     -> Bi.put @Int 9 *> Bi.put five
+      FLaTeX         -> Bi.put @Int 10
+      FHaddock       -> Bi.put @Int 11
+      FTWiki         -> Bi.put @Int 12
+      FDocX          -> Bi.put @Int 13
+      FODT           -> Bi.put @Int 14
+      FT2T           -> Bi.put @Int 15
+      FEPub v        -> Bi.put @Int 16 *> Bi.put v
+      FFictionBook2  -> Bi.put @Int 17
+      FICML          -> Bi.put @Int 18
+      FSlideShow t   -> Bi.put @Int 19 *> Bi.put t
+      FOpenDocument  -> Bi.put @Int 20
+      FContext       -> Bi.put @Int 21
+      FTexinfo       -> Bi.put @Int 22
+      FMan           -> Bi.put @Int 23
+      FPlain         -> Bi.put @Int 24
+      FDokuWiki      -> Bi.put @Int 25
+      FASCIIDoc      -> Bi.put @Int 26
+      FTEI           -> Bi.put @Int 27
+      FPDF t         -> Bi.put @Int 28 *> Bi.put t
+      FZimWiki       -> Bi.put @Int 29
+      FRTF           -> Bi.put @Int 30
+      FMkWriteOnly f -> Bi.put @Int 31 *> Bi.put f
+      FMkReadOnly f  -> Bi.put @Int 32 *> Bi.put f
 
 instance Hashable SomeFormat where
     hashWithSalt s sf = s `hashWithSalt` Bi.encode sf
@@ -322,6 +332,8 @@ instance (SingI r, SingI w) => Hashable (FormatOptions r w) where
                           `hashWithSalt` (fo ^. foReaderOpts)
                           `hashWithSalt` (fo ^. foWriterOpts)
 
+-- instance (SingI r, SingI w) => FromJSON (FormatOptions r w) where
+
 instance Bi.Binary (Writer FormatOptions) where
     get = do
       r <- Bi.get @Bool
@@ -336,9 +348,21 @@ instance Hashable (Writer FormatOptions) where
     hashWithSalt s = \case
       Writer fo -> s `hashWithSalt` fo
 
+-- instance FromJSON (Writer FormatOptions) where
+--     parseJSON v = do
+--         Writer ft <- parseJSON v
+--         return $ Writer 
 
 fromReaderOptions :: ReaderOptions -> P.ReaderOptions
 fromReaderOptions _ = def
+
+-- data FormatOptions :: Bool -> Bool -> Type where
+--     FormatOptions :: { _foFormat     :: Format r w
+--                      , _foReaderOpts :: HasIf r ReaderOptions
+--                      , _foWriterOpts :: HasIf w WriterOptions
+--                      }
+--                -> FormatOptions r w
+--   deriving (Show, Generic)
 
 -- writerOptions :: Format r w -> WriterOptions -> P.WriterOptions
 -- writerOptions _ _ = def
@@ -387,51 +411,53 @@ readerString = \case
     FODT          -> "odf"
     FT2T          -> "t2t"
     FEPub _       -> "epub"
+    FMkReadOnly f -> readerString f         -- any way to indicate?
 
 writerString :: Format r 'True -> String
 writerString = \case
-    FNative       -> "native"
-    FJSON         -> "json"
-    FMarkdown mt  -> case mt of
-      MDPandoc    -> "markdown"
-      MDStrict    -> "markdown_strict"
-      MDPHP       -> "markdown_phpextra"
-      MDGithub    -> "markdown_github"
-      MDMulti     -> "markdown_mmd"
-      MDCommon    -> "commonmark"
-    FRST          -> "rst"
-    FMediaWiki    -> "mediawiki"
-    FDocBook five -> "docbook" ++ if five then "5" else ""
-    FOPML         -> "opml"
-    FOrg          -> "org"
-    FTextile      -> "textile"
-    FHTML five    -> "html" ++ if five then "5" else ""
-    FLaTeX        -> "latex"
-    FHaddock      -> "haddock"
-    FDocX         -> "docx"
-    FODT          -> "odf"
-    FEPub epv     -> "epub" ++ case epv of P.EPUB2 -> ""; P.EPUB3 -> ""
-    FFictionBook2 -> "fb2"
-    FICML         -> "icml"
-    FSlideShow ss -> case ss of
-      SSS5        -> "s5"
-      SSSlidy     -> "slidy"
-      SSSlideous  -> "slideous"
-      SSDZSlides  -> "dzslides"
-      SSRevealJS  -> "revealjs"
-      SSBeamer    -> "beamer"
-    FOpenDocument -> "opendocument"
-    FContext      -> "context"
-    FTexinfo      -> "texinfo"
-    FMan          -> "man"
-    FPlain        -> "plain"
-    FDokuWiki     -> "dokuwiki"
-    FASCIIDoc     -> "asciidoc"
-    FTEI          -> "tei"
+    FNative        -> "native"
+    FJSON          -> "json"
+    FMarkdown mt   -> case mt of
+      MDPandoc     -> "markdown"
+      MDStrict     -> "markdown_strict"
+      MDPHP        -> "markdown_phpextra"
+      MDGithub     -> "markdown_github"
+      MDMulti      -> "markdown_mmd"
+      MDCommon     -> "commonmark"
+    FRST           -> "rst"
+    FMediaWiki     -> "mediawiki"
+    FDocBook five  -> "docbook" ++ if five then "5" else ""
+    FOPML          -> "opml"
+    FOrg           -> "org"
+    FTextile       -> "textile"
+    FHTML five     -> "html" ++ if five then "5" else ""
+    FLaTeX         -> "latex"
+    FHaddock       -> "haddock"
+    FDocX          -> "docx"
+    FODT           -> "odf"
+    FEPub epv      -> "epub" ++ case epv of P.EPUB2 -> ""; P.EPUB3 -> ""
+    FFictionBook2  -> "fb2"
+    FICML          -> "icml"
+    FSlideShow ss  -> case ss of
+      SSS5         -> "s5"
+      SSSlidy      -> "slidy"
+      SSSlideous   -> "slideous"
+      SSDZSlides   -> "dzslides"
+      SSRevealJS   -> "revealjs"
+      SSBeamer     -> "beamer"
+    FOpenDocument  -> "opendocument"
+    FContext       -> "context"
+    FTexinfo       -> "texinfo"
+    FMan           -> "man"
+    FPlain         -> "plain"
+    FDokuWiki      -> "dokuwiki"
+    FASCIIDoc      -> "asciidoc"
+    FTEI           -> "tei"
     -- TODO: is this right?
-    FPDF t        -> case pdfFormat t of Writer ft -> writerString ft
-    FZimWiki      -> "zimwiki"
-    FRTF          -> "frtf"
+    FPDF t         -> case pdfFormat t of Writer ft -> writerString ft
+    FZimWiki       -> "zimwiki"
+    FRTF           -> "frtf"
+    FMkWriteOnly f -> writerString f            -- any way to indicate?
 
 -- formatString :: Format r w -> String
 -- formatString = \case

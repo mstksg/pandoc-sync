@@ -1,9 +1,10 @@
-{-# LANGUAGE DeriveGeneric   #-}
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TupleSections   #-}
-{-# LANGUAGE TypeOperators   #-}
-{-# LANGUAGE ViewPatterns    #-}
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE TypeOperators     #-}
+{-# LANGUAGE ViewPatterns      #-}
 
 module Text.Pandoc.Sync (
     FileExt
@@ -20,11 +21,11 @@ module Text.Pandoc.Sync (
   , module PS
   ) where
 
+import           Control.Applicative
 import           Control.Exception
 import           Control.Lens
 import           Control.Monad
 import           Data.Aeson
-import           Data.Aeson.Types
 import           Data.Dependent.Sum
 import           Data.Hashable
 import           Data.List
@@ -54,7 +55,11 @@ instance Hashable DiscoverMode where
       DMParallelTree mp -> s `hashWithSalt` (1 :: Int)
                              `hashWithSalt` M.toList mp
 
-      
+instance FromJSON DiscoverMode where
+    parseJSON v = case v of
+      String "same-dir" -> pure DMSameDir
+      _                 -> DMParallelTree <$> parseJSON v
+
 
 data FileDiscover = FD { _fdBaseDir      :: FilePath
                        , _fdFileName     :: String
@@ -82,9 +87,12 @@ instance Hashable SyncConfig where
                           `hashWithSalt` M.toList (sc ^. scFormats)
 
     
--- instance FromJSON SyncConfig where
---     parseJSON = genericParseJSON defaultOptions
---                     { fieldLabelModifier = camelTo2 '-' . drop 3 }
+instance FromJSON SyncConfig where
+    parseJSON = withObject "SyncConfig" $ \v ->
+      SC <$> (v .: "discover-mode" <|> pure DMSameDir                  )
+         <*> (v .: "formats"       <|> fail "List of formats required.")
+         <*> (v .: "root"          <|> pure ""                         )
+         <*> (v .: "cache"         <|> pure ".pandoc-sync-cache"       )
 
 data Sync = Sync { _syncFiles    :: M.Map FileDiscover SyncFile
                  , _syncConfHash :: Int

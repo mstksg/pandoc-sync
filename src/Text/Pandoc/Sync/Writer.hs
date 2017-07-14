@@ -9,13 +9,15 @@ module Text.Pandoc.Sync.Writer (
     writePandoc
   ) where
 
+-- import           Control.Monad.IO.Class
 -- import qualified Text.Pandoc.MediaBag      as P
+-- import qualified Text.Pandoc.Options       as P
 -- import qualified Text.Pandoc.Readers.LaTeX as P
+-- import qualified Text.Pandoc.Templates     as P
 import           Control.Applicative
 import           Control.Exception
 import           Control.Lens hiding          ((<.>), (%~))
 import           Control.Monad
-import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Maybe
 import           Data.Default
 import           Data.List
@@ -29,16 +31,15 @@ import           System.FilePath
 import           System.IO.Error
 import           Text.Pandoc.Sync.Format
 import qualified Data.ByteString.Lazy         as B
+import qualified Data.Map                     as M
 import qualified Data.Text.Lazy.Encoding      as TL
 import qualified Data.Text.Lazy.IO            as TL
 import qualified Text.Pandoc                  as P
 import qualified Text.Pandoc.Lens.App         as P
 import qualified Text.Pandoc.MediaBag         as P
-import qualified Text.Pandoc.Options          as P
 import qualified Text.Pandoc.PDF              as P
 import qualified Text.Pandoc.SelfContained    as P
 import qualified Text.Pandoc.Shared           as P
-import qualified Text.Pandoc.Templates        as P
 import qualified Text.Pandoc.UTF8             as UTF8
 
 writePandoc
@@ -121,7 +122,7 @@ mkWriterOptions ft wo bag = do
        return ("dzslides-core", dzcore)
     let variables = concat [ maybeToList mathVar
                            , maybeToList dzVar
-                           , wo ^. woVariables
+                           , M.toList (wo ^. woVariables)
                            ]
 
     return def { P.writerTemplate        = templ

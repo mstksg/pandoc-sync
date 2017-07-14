@@ -4,6 +4,7 @@
 {-# LANGUAGE InstanceSigs         #-}
 {-# LANGUAGE KindSignatures       #-}
 {-# LANGUAGE LambdaCase           #-}
+{-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE StandaloneDeriving   #-}
@@ -35,12 +36,12 @@ module Text.Pandoc.Sync.Format (
   , HasIf(..)
   , _Has
   , _Hasn't
-  , _HasMaybe
+  , hasIfMaybe
   ) where
 
+import           Control.Applicative
 import           Control.Lens
 import           Data.Aeson
-import           Data.Aeson.Types
 import           Data.Default
 import           Data.Hashable
 import           Data.Kind
@@ -51,6 +52,7 @@ import           Data.Type.Equality
 import           GHC.Generics                 (Generic)
 import qualified Data.Binary                  as Bi
 import qualified Data.IntMap                  as IM
+import qualified Data.Map                     as M
 import qualified Data.Singletons.Decide       as Si
 import qualified Text.Pandoc                  as P
 
@@ -164,6 +166,13 @@ asReader sr f = case sing @_ @r' Si.%~ sr of
 data Writer :: (Bool -> Bool -> Type) -> Type where
     Writer :: SingI r => f r 'True -> Writer f
 
+instance FromJSON (Writer Format) where
+    parseJSON v = do
+      SomeFormat sr sw ft <- parseJSON v
+      case sw of
+        SFalse -> fail "Unwritable format given where writable format is expected"
+        STrue  -> withSingI sr $ return (Writer ft)
+
 data SomeFormat :: Type where
     SomeFormat :: Sing r -> Sing w -> Format r w -> SomeFormat
 
@@ -246,6 +255,9 @@ instance Bi.Binary SomeFormat where
 instance Hashable SomeFormat where
     hashWithSalt s sf = s `hashWithSalt` Bi.encode sf
 
+instance FromJSON SomeFormat where
+    parseJSON = undefined
+
 data HasIf :: Bool -> Type -> Type where
     Has    :: a -> HasIf 'True a
     Hasn't :: HasIf 'False a
@@ -258,12 +270,17 @@ _Has = iso (\case Has x -> x) Has
 _Hasn't :: Iso' (HasIf 'False a) ()
 _Hasn't = iso (const ()) (const Hasn't)
 
-_HasMaybe :: forall r a b. SingI r => Prism (HasIf r a) (HasIf r b) a b
-_HasMaybe = prism (case sing @_ @r of
-                     STrue -> Has
-                     SFalse -> const Hasn't
-                  )
-                  (\case Has x -> Right x; Hasn't -> Left Hasn't)
+hasIfMaybe :: HasIf b a -> Maybe a
+hasIfMaybe = \case
+    Has  x -> Just x
+    Hasn't -> Nothing
+
+-- _HasMaybe :: forall r a b. SingI r => Prism (HasIf r a) (HasIf r b) a b
+-- _HasMaybe = prism (case sing @_ @r of
+--                      STrue -> Has
+--                      SFalse -> const Hasn't
+--                   )
+--                   (\case Has x -> Right x; Hasn't -> Left Hasn't)
 
 instance (SingI b, Bi.Binary a) => Bi.Binary (HasIf b a) where
     get = case sing @_ @b of
@@ -284,6 +301,11 @@ instance Hashable a => Hashable (HasIf b a) where
                   `hashWithSalt` x
       Hasn't -> s `hashWithSalt` (1 :: Int)
 
+instance (SingI b, FromJSON a) => FromJSON (HasIf b a) where
+    parseJSON = case sing @_ @b of
+      STrue  -> fmap Has . parseJSON
+      SFalse -> const $ pure Hasn't
+
 data ReaderOptions = RO
     deriving (Show, Eq, Ord, Generic)
 
@@ -295,7 +317,7 @@ data WriterOptions = WO { _woStandalone   :: Bool
                         , _woTemplatePath :: Maybe FilePath
                         , _woDataDir      :: Maybe FilePath
                         , _woMathMethod   :: P.HTMLMathMethod
-                        , _woVariables    :: [(String, String)]
+                        , _woVariables    :: M.Map String String
                         , _woTabStop      :: Int
                         , _woTOC          :: Bool
                         }
@@ -310,10 +332,27 @@ instance Default ReaderOptions where
     def = RO
 
 instance Default WriterOptions where
-    def = WO True Nothing Nothing P.PlainMath [] 4 False
+    def = WO True Nothing Nothing P.PlainMath M.empty 4 False
 
 instance Hashable ReaderOptions
-instance Hashable WriterOptions
+instance Hashable WriterOptions where
+    hashWithSalt s wo = s `hashWithSalt` wo ^. woStandalone
+                          `hashWithSalt` wo ^. woTemplatePath
+                          `hashWithSalt` wo ^. woDataDir
+                          `hashWithSalt` M.toList (wo ^. woVariables)
+                          `hashWithSalt` wo ^. woTabStop
+                          `hashWithSalt` wo ^. woTOC
+
+instance FromJSON ReaderOptions
+instance FromJSON WriterOptions where
+    parseJSON = withObject "WriterOptions" $ \v ->
+      WO <$> (v .: "standalone" <|> pure True)
+         <*> v .: "template-path"
+         <*> v .: "data-dir"
+         <*> pure P.PlainMath
+         <*> (v .: "variables" <|> pure M.empty)
+         <*> (v .: "tab-stop" <|> pure 4)
+         <*> (v .: "toc"      <|> v .: "table-of-contents" <|> pure False)
 
 data FormatOptions :: Bool -> Bool -> Type where
     FormatOptions :: { _foFormat     :: Format r w
@@ -348,10 +387,12 @@ instance Hashable (Writer FormatOptions) where
     hashWithSalt s = \case
       Writer fo -> s `hashWithSalt` fo
 
--- instance FromJSON (Writer FormatOptions) where
---     parseJSON v = do
---         Writer ft <- parseJSON v
---         return $ Writer 
+instance FromJSON (Writer FormatOptions) where
+    parseJSON = withObject "Writer FormatOptions" $ \v -> do
+      Writer (ft :: Format r 'True) <- v .: "format"
+      fo <- FormatOptions ft <$> (v .: "opts" <|> pure def)
+                             <*> (v .: "opts" <|> pure def)
+      return $ Writer fo
 
 fromReaderOptions :: ReaderOptions -> P.ReaderOptions
 fromReaderOptions _ = def

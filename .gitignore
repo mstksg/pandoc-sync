@@ -1,4 +1,6 @@
 /.stack-work
 /.pandoc-sync-cache
+/.pandoc-sync-same-cache
 /pandoc-sync.yaml
 /test-sync
+/test-sync-same

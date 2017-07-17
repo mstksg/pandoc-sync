@@ -21,7 +21,8 @@ module Text.Pandoc.Sync (
   , module PS
   ) where
 
-import           Control.Applicative
+-- import           Control.Applicative
+-- import qualified Data.Text           as T
 import           Control.Exception
 import           Control.Lens
 import           Control.Monad
@@ -33,14 +34,14 @@ import           Data.Maybe
 import           Data.Monoid
 import           Data.Singletons
 import           Debug.Trace
-import           GHC.Generics          (Generic)
+import           GHC.Generics           (Generic)
 import           System.Directory
 import           System.FilePath
 import           System.IO.Error
-import           Text.Pandoc.Sync.File as PS
-import qualified Data.Binary           as Bi
-import qualified Data.Map              as M
-import qualified Data.Set              as S
+import           Text.Pandoc.Sync.File  as PS
+import qualified Data.Binary            as Bi
+import qualified Data.Map               as M
+import qualified Data.Set               as S
 
 type FileExt = String
 
@@ -56,9 +57,11 @@ instance Hashable DiscoverMode where
                              `hashWithSalt` M.toList mp
 
 -- instance FromJSON DiscoverMode where
---     parseJSON v = case v of
---       String "same-dir" -> pure DMSameDir
---       _                 -> DMParallelTree <$> parseJSON v
+--     parseJSON = withObject "DiscoverMode" $ \v -> do
+--       mode <- v .: "mode"
+--       case mode :: T.Text of
+--         "same-dir" -> pure DMSameDir
+--         "parallel" -> DMParallelTree <$> v .: "format-tree"
 
 
 data FileDiscover = FD { _fdBaseDir      :: FilePath
@@ -86,15 +89,19 @@ instance Hashable SyncConfig where
                           `hashWithSalt` (sc ^. scCache)
                           `hashWithSalt` M.toList (sc ^. scFormats)
 
-    
+
 instance FromJSON SyncConfig where
     parseJSON = withObject "SyncConfig" $ \v -> do
-      dm <- do
-        dmTok <- v .:? "discover-mode"
-        case dmTok :: Maybe String of
-          Nothing         -> pure DMSameDir
-          Just "same-dir" -> pure DMSameDir
-          Just "parallel" -> DMParallelTree <$> v .: "format-tree"
+      pmode <- v .:? "parallel-mode"
+      ftree <- v .:? "format-tree"
+      dm <- case pmode of
+        Just True -> case ftree of
+          Just t  -> return $ DMParallelTree t
+          Nothing -> fail "Parallel mode indicated, but format-tree required."
+        Just False -> return DMSameDir
+        Nothing -> case ftree of
+          Just t  -> return $ DMParallelTree t
+          Nothing -> return DMSameDir
       fts   <- v .: "formats"
       rt    <- v .:? "root"
       cache <- v .:? "cache"
@@ -117,14 +124,37 @@ initSync sc = do
     createDirectoryIfMissing True (sc ^. scRoot)
     res <- flip Sync (hash sc) <$> case sc ^. scDiscoverMode of
       DMSameDir          ->
-        M.mapWithKey mkSF <$> discoverAll (sc ^. scFormats) (sc ^. scRoot)
-      DMParallelTree rts -> fmap (M.mapWithKey (fillParallel rts) . join traceShow . M.unionsWith mergeSF)
-                          . traverse (uncurry mkParallel)
-                          . M.toList
-                          $ rts
+        fillSameDir . M.mapWithKey mkSF
+        -- . M.mapWithKey mkSF
+          <$> discoverAll (sc ^. scFormats) (sc ^. scRoot)
+      DMParallelTree rts ->
+        M.mapWithKey (fillParallel rts) . join traceShow . M.unionsWith mergeSF
+          <$> traverse (uncurry mkParallel) (M.toList rts)
     print res
     return res
   where
+    fillSameDir
+        :: M.Map FileDiscover SyncFile
+        -> M.Map FileDiscover SyncFile
+    fillSameDir sfs = M.unionWith mergeSF sfs fills
+      where
+        fills :: M.Map FileDiscover SyncFile
+        fills = M.mapWithKey go sfs
+        go :: FileDiscover -> SyncFile -> SyncFile
+        go fd = over sfSourcesSinks (`M.union` filled)
+          where
+            filled :: M.Map FilePath (DSum Sing SyncFileData)
+            filled = M.fromList . map (uncurry go2) . M.toList $ sc ^. scFormats
+            go2 :: FileExt
+                -> Writer FormatOptions
+                -> (FilePath, DSum Sing SyncFileData)
+            go2 ex (Writer fo) = (fullPath, sfd)
+              where
+                sfd = sing :=> SyncFileData (fo ^. foFormat)
+                                            (fo ^. foReaderOpts)
+                                            (fo ^. foWriterOpts . _Has)
+                                            Nothing
+                fullPath = fd ^. fdBaseDir </> fd ^. fdFileName -<.> ex
     mkParallel :: FilePath -> FileExt -> IO (M.Map FileDiscover SyncFile)
     mkParallel rt ex = case sc ^? scFormats . ix ex of
       -- TODO: handle bad format?

@@ -189,7 +189,7 @@ pdfEngine
 pdfEngine = \case
     PTLaTeX   -> "pdflatex"
     PTBeamer  -> "pdflatex"
-    PTContext -> "context"
+    PTConTeXt -> "context"
     PTHTML5   -> "wkhtmltopdf"
 
 htmlFormat

@@ -20,6 +20,7 @@ module Text.Pandoc.Sync.Format (
   , Format(..), AsFormat(..)
   , SomeFormat(..), someFormat
   , asReader
+  , writeOnly
   , Writer(..)
   , ReaderOptions(..)
   , fromReaderOptions
@@ -39,12 +40,14 @@ module Text.Pandoc.Sync.Format (
   , _Hasn't
   , hasIfMaybe
   , allFormats
+  , allWriters
   ) where
 
 import           Control.Applicative
 import           Control.Lens
 import           Data.Aeson
 import           Data.Default
+import           Data.Foldable
 import           Data.Hashable
 import           Data.Kind
 import           Data.Maybe
@@ -56,6 +59,8 @@ import qualified Data.Binary                  as Bi
 import qualified Data.IntMap                  as IM
 import qualified Data.Map                     as M
 import qualified Data.Singletons.Decide       as Si
+import qualified Text.Megaparsec              as MP
+import qualified Text.Megaparsec.Text         as MP
 import qualified Text.Pandoc                  as P
 
 data MarkdownType = MDPandoc
@@ -82,7 +87,7 @@ instance Bi.Binary SlideShowType
 
 data PDFType = PTLaTeX
              | PTBeamer
-             | PTContext
+             | PTConTeXt
              | PTHTML5
   deriving (Show, Generic, Eq, Ord, Enum, Bounded)
 
@@ -115,7 +120,7 @@ data Format :: Bool -> Bool -> Type where
     FSlideShow    :: SlideShowType
                   -> Format 'False 'True
     FOpenDocument :: Format 'False 'True
-    FContext      :: Format 'False 'True
+    FConTeXt      :: Format 'False 'True
     FTexinfo      :: Format 'False 'True
     FMan          :: Format 'False 'True
     FPlain        :: Format 'False 'True
@@ -165,6 +170,11 @@ asReader sr f = case sing @_ @r' Si.%~ sr of
     Si.Proved Refl -> f
     Si.Disproved _ -> pure
 
+writeOnly :: forall r. SingI r => Format r 'True -> Format 'False 'True
+writeOnly = case sing @_ @r of
+    SFalse -> id
+    STrue  -> FMkWriteOnly
+
 data Writer :: (Bool -> Bool -> Type) -> Type where
     Writer :: SingI r => f r 'True -> Writer f
 
@@ -174,6 +184,12 @@ instance FromJSON (Writer Format) where
       case sw of
         SFalse -> fail "Unwritable format given where writable format is expected"
         STrue  -> withSingI sr $ return (Writer ft)
+
+instance Show (Writer Format) where
+    showsPrec d (Writer ft) = showParen (d > app_prec) $
+        showString "Writer " . showsPrec (app_prec + 1) ft
+      where
+        app_prec = 10
 
 data SomeFormat :: Type where
     SomeFormat :: Sing r -> Sing w -> Format r w -> SomeFormat
@@ -215,7 +231,7 @@ instance Bi.Binary SomeFormat where
                             ,(18, return $ someFormat FICML           )
                             ,(19, someFormat . FSlideShow <$> Bi.get  )
                             ,(20, return $ someFormat FOpenDocument   )
-                            ,(21, return $ someFormat FContext        )
+                            ,(21, return $ someFormat FConTeXt        )
                             ,(22, return $ someFormat FTexinfo        )
                             ,(23, return $ someFormat FMan            )
                             ,(24, return $ someFormat FPlain          )
@@ -250,7 +266,7 @@ instance Bi.Binary SomeFormat where
       FICML          -> Bi.put @Int 18
       FSlideShow t   -> Bi.put @Int 19 *> Bi.put t
       FOpenDocument  -> Bi.put @Int 20
-      FContext       -> Bi.put @Int 21
+      FConTeXt       -> Bi.put @Int 21
       FTexinfo       -> Bi.put @Int 22
       FMan           -> Bi.put @Int 23
       FPlain         -> Bi.put @Int 24
@@ -267,9 +283,6 @@ instance Hashable SomeFormat where
     hashWithSalt s (SomeFormat sr sw ft) = withSingI sr $
                                            withSingI sw $
       hashWithSalt s ft
-
-instance FromJSON SomeFormat where
-    parseJSON = undefined
 
 data HasIf :: Bool -> Type -> Type where
     Has    :: a -> HasIf 'True a
@@ -425,7 +438,7 @@ pdfFormat :: PDFType -> Writer Format
 pdfFormat = \case
     PTLaTeX   -> Writer FLaTeX
     PTBeamer  -> Writer $ FSlideShow SSBeamer
-    PTContext -> Writer $ FContext
+    PTConTeXt -> Writer $ FConTeXt
     PTHTML5   -> Writer $ FHTML True
 
 formatReader
@@ -489,7 +502,7 @@ writerString = \case
     FHaddock       -> "haddock"
     FDocX          -> "docx"
     FODT           -> "odf"
-    FEPub epv      -> "epub" ++ case epv of P.EPUB2 -> ""; P.EPUB3 -> ""
+    FEPub epv      -> "epub" ++ case epv of P.EPUB2 -> ""; P.EPUB3 -> "3"
     FFictionBook2  -> "fb2"
     FICML          -> "icml"
     FSlideShow ss  -> case ss of
@@ -500,7 +513,7 @@ writerString = \case
       SSRevealJS   -> "revealjs"
       SSBeamer     -> "beamer"
     FOpenDocument  -> "opendocument"
-    FContext       -> "context"
+    FConTeXt       -> "context"
     FTexinfo       -> "texinfo"
     FMan           -> "man"
     FPlain         -> "plain"
@@ -510,7 +523,7 @@ writerString = \case
     -- TODO: is this right?
     FPDF t         -> case pdfFormat t of Writer ft -> writerString ft
     FZimWiki       -> "zimwiki"
-    FRTF           -> "frtf"
+    FRTF           -> "rtf"
     FMkWriteOnly f -> writerString f            -- any way to indicate?
 
 -- formatString :: Format r w -> String
@@ -589,7 +602,7 @@ allFormats = concat [ all'
         ]
       , someFormat . FSlideShow <$> [minBound .. maxBound]
       , [ someFormat FOpenDocument
-        , someFormat FContext
+        , someFormat FConTeXt
         , someFormat FTexinfo
         , someFormat FMan
         , someFormat FPlain
@@ -603,6 +616,13 @@ allFormats = concat [ all'
         ]
       ]
     rw = filterSomeFormat STrue STrue
+
+allWriters :: [Writer Format]
+allWriters = mapMaybe go allFormats
+  where
+    go x = (Writer <$> filterSomeFormat SFalse STrue x)
+       <|> (Writer <$> filterSomeFormat STrue  STrue x)
+
 
 filterSomeFormat
     :: Sing r
@@ -618,4 +638,114 @@ filterSomeFormat sr sw (SomeFormat sr' sw' ft) = do
     decideMaybe = \case
       Si.Proved x    -> Just x
       Si.Disproved _ -> Nothing
+
+parseSomeFormat :: MP.Parser SomeFormat
+parseSomeFormat = do
+    baseFormat <- asum [ MP.try singleWord
+                       , someFormat . FMarkdown <$> MP.try markdown
+                       ]
+    modFlag <- asum [ MP.try $ someFormat . FMkReadOnly  <$ MP.string "readonly"
+                    , MP.try $ someFormat . FMkReadOnly  <$ MP.string "ro"
+                    , MP.try $ someFormat . FMkReadOnly  <$ MP.string "readOnly"
+                    , MP.try $ someFormat . FMkReadOnly  <$ MP.string "ReadOnly"
+                    , MP.try $ someFormat . FMkWriteOnly <$ MP.string "writeonly"
+                    , MP.try $ someFormat . FMkWriteOnly <$ MP.string "wo"
+                    , MP.try $ someFormat . FMkWriteOnly <$ MP.string "writeOnly"
+                    , MP.try $ someFormat . FMkWriteOnly <$ MP.string "WriteOnly"
+                    , pure $ someFormat
+                    ]
+    return $ case baseFormat of
+       SomeFormat STrue STrue ft -> modFlag ft
+       SomeFormat sr    sw    ft -> SomeFormat sr sw ft
+  where
+    markdown :: MP.Parser MarkdownType
+    markdown = do
+      _ <- MP.try (MP.string "markdown") <|> MP.string "md"
+      MP.skipSome MP.spaceChar
+      asum [ MP.try $ MDStrict <$ MP.string "strict"
+           , MP.try $ MDPHP    <$ MP.string "phpextra"
+           , MP.try $ MDPHP    <$ MP.string "php"
+           , MP.try $ MDGithub <$ MP.string "github"
+           , MP.try $ MDGithub <$ MP.string "gh"
+           , MP.try $ MDMulti  <$ MP.string "mmd"
+           , MP.try $ MDMulti  <$ MP.string "multi"
+           , MP.try $ MDMulti  <$ MP.string "multimarkdown"
+           , MP.try $ MDCommon <$ MP.string "common"
+           , MP.try $ MDCommon <$ MP.string "commonmark"
+           , pure MDPandoc
+           ]
+    singleWord :: MP.Parser SomeFormat
+    singleWord = asum . flip fmap singleWords . uncurry $ \s ft -> MP.try $ do
+      _ <- MP.string s
+      MP.skipSome MP.spaceChar
+      return ft
+    singleWords :: [(String, SomeFormat)]
+    singleWords =
+      [ ("native"      , someFormat FNative                )
+      , ("haskell"     , someFormat FNative                )
+      , ("json"        , someFormat FJSON                  )
+      , ("common"      , someFormat (FMarkdown MDCommon)   )
+      , ("commonmark"  , someFormat (FMarkdown MDCommon)   )
+      , ("html"        , someFormat (FHTML True)           )
+      , ("html4"       , someFormat (FHTML False)          )
+      , ("html5"       , someFormat (FHTML True)           )
+      , ("html-pdf"    , someFormat (FPDF PTHTML5)         )
+      , ("html5-pdf"   , someFormat (FPDF PTHTML5)         )
+      , ("epub"        , someFormat (FEPub P.EPUB2)        )
+      , ("epub2"       , someFormat (FEPub P.EPUB2)        )
+      , ("epub3"       , someFormat (FEPub P.EPUB3)        )
+      , ("docbook"     , someFormat (FDocBook False)       )
+      , ("docbook5"    , someFormat (FDocBook True)        )
+      , ("rst"         , someFormat FRST                   )
+      , ("mediawiki"   , someFormat FMediaWiki             )
+      , ("opml"        , someFormat FOPML                  )
+      , ("org"         , someFormat FOrg                   )
+      , ("textile"     , someFormat FTextile               )
+      , ("latex"       , someFormat FLaTeX                 )
+      , ("tex"         , someFormat FLaTeX                 )
+      , ("pdf"         , someFormat (FPDF PTLaTeX)         )
+      , ("latex-pdf"   , someFormat (FPDF PTLaTeX)         )
+      , ("tex-pdf"     , someFormat (FPDF PTLaTeX)         )
+      , ("haddock"     , someFormat FHaddock               )
+      , ("twiki"       , someFormat FTWiki                 )
+      , ("docx"        , someFormat FDocX                  )
+      , ("doc"         , someFormat FDocX                  )
+      , ("odt"         , someFormat FODT                   )
+      , ("t2t"         , someFormat FT2T                   )
+      , ("fb2"         , someFormat FFictionBook2          )
+      , ("fb"          , someFormat FFictionBook2          )
+      , ("fictionbook" , someFormat FFictionBook2          )
+      , ("fictionbook2", someFormat FFictionBook2          )
+      , ("icml"        , someFormat FICML                  )
+      , ("opendocument", someFormat FOpenDocument          )
+      , ("context"     , someFormat FConTeXt               )
+      , ("context-pdf" , someFormat (FPDF PTConTeXt)       )
+      , ("texinfo"     , someFormat FTexinfo               )
+      , ("man"         , someFormat FMan                   )
+      , ("plain"       , someFormat FPlain                 )
+      , ("dokuwiki"    , someFormat FDokuWiki              )
+      , ("doku"        , someFormat FDokuWiki              )
+      , ("zimwiki"     , someFormat FZimWiki               )
+      , ("zim"         , someFormat FZimWiki               )
+      , ("asciidoc"    , someFormat FASCIIDoc              )
+      , ("tei"         , someFormat FTEI                   )
+      , ("rtf"         , someFormat FRTF                   )
+      , ("s5"          , someFormat (FSlideShow SSS5)      )
+      , ("slidy"       , someFormat (FSlideShow SSSlidy)   )
+      , ("slideous"    , someFormat (FSlideShow SSSlideous))
+      , ("dz"          , someFormat (FSlideShow SSDZSlides))
+      , ("dzslides"    , someFormat (FSlideShow SSDZSlides))
+      , ("revealjs"    , someFormat (FSlideShow SSRevealJS))
+      , ("reveal"      , someFormat (FSlideShow SSRevealJS))
+      , ("beamer"      , someFormat (FPDF PTBeamer)        )
+      , ("beamer-pdf"  , someFormat (FPDF PTBeamer)        )
+      , ("beamer-latex", someFormat (FSlideShow SSBeamer)  )
+      , ("beamer-tex"  , someFormat (FSlideShow SSBeamer)  )
+      ]
+
+instance FromJSON SomeFormat where
+    parseJSON = withText "SomeFormat" $ \t ->
+      case MP.parse parseSomeFormat "Value" t of
+        Left  e  -> fail $ MP.parseErrorPretty e
+        Right sf -> return sf
 

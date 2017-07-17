@@ -41,6 +41,7 @@ library
                      , type-combinators
                      , witherable
                      , aeson
+                     , megaparsec
   default-language:    Haskell2010
   ghc-options:         -Wall
 

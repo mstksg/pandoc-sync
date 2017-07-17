@@ -144,6 +144,7 @@ sfSourcesSinks f s0 = f bigMap <&> \bm ->
 runSyncFile :: SyncFile -> IO SyncFile
 runSyncFile s0 = do
     syncTime <- getCurrentTime
+    -- putStrLn $ "Last mod time: " ++ show (sfd ^. sfdLastSync)
     (updatesE, updates) <- fmap (M.mapEither id . catMaybes)
              . ifor (s0 ^. sfSources) $ \fp sfd -> runMaybeT $ do
       modTime <- MaybeT
@@ -154,7 +155,12 @@ runSyncFile s0 = do
     -- s <- tryJust (guard . isDoesNotExistError) $ Bi.decodeFile (sc ^. scCache)
       case sfd ^. sfdLastSync of
         Nothing  -> return ()
-        Just mt0 -> guard $ mt0 < modTime
+        Just mt0 -> do
+          guard $ mt0 `utclt` modTime
+      case s0 ^? sfLastUpdate . _Just . _1 of
+        Nothing -> return ()
+        Just s0mt -> guard $ s0mt `utclt` modTime
+        -- s0 & sfLastUpdate                  .~ Just (syncTime, pd, mb)
       liftIO $ printf "Found updated source: %s (%s -> %s)\n"
                       fp
                       (show (sfd ^. sfdLastSync))
@@ -166,7 +172,8 @@ runSyncFile s0 = do
         Right (newPd, mb) -> case s0 ^? sfLastUpdate . _Just . _2 of
           Just oldPd | oldPd == newPd
                     -> Nothing
-          _         -> Just $ Right (sfd ^. sfdLastSync, (newPd, mb))
+          -- _         -> Just $ Right (sfd ^. sfdLastSync, (newPd, mb))
+          _         -> Just $ Right (modTime, (newPd, mb))
         Left e      -> Just $ Left e
     let sortedUpdates = mapToQueue id updates
     case PS.minView sortedUpdates of
@@ -180,6 +187,8 @@ runSyncFile s0 = do
               updateSource syncTime False pd mb fp' sfd
       Just (fp, _, (pd, mb), laterUpdates) -> do
         putStrLn "Updates found!"
+        putStrLn $ "Last update was " ++ show (s0 ^? sfLastUpdate . _Just . _1)
+        putStrLn $ "Using update from: " ++ fp
         itraverse_ backupError updatesE
         itraverse_ backupLater $ queueToMap (flip const) laterUpdates
         s0 & sfLastUpdate                  .~ Just (syncTime, pd, mb)
@@ -187,10 +196,12 @@ runSyncFile s0 = do
                sfd' <- updateSource syncTime (fp == fp') pd mb fp' sfd
                return $ s :=> sfd'
   where
+    utclt :: UTCTime -> UTCTime -> Bool
+    utclt t1 t2 = (t2 `diffUTCTime` t1) > 0.5       -- threshold for equality (seconds)
     backupError :: FilePath -> P.PandocError -> IO ()
-    backupError _ _ = return ()
+    backupError fp _ = putStrLn $ "Error reading " ++ fp ++ " !"
     backupLater :: FilePath -> (P.Pandoc, P.MediaBag) -> IO ()
-    backupLater _ _ = return ()
+    backupLater fp _ = putStrLn $ "Update conflit! " ++ fp
     updateSource
         :: SingI r
         => UTCTime
@@ -202,7 +213,8 @@ runSyncFile s0 = do
         -> IO (SyncFileData r)
     updateSource st skipWrite pd mb fp sfd = do
       createDirectoryIfMissing True (takeDirectory fp)
-      unless skipWrite $
+      unless skipWrite $ do
+        putStrLn $ "Updating " ++ fp
         writePandoc (sfd ^. sfdFormat) pd mb (sfd ^. sfdWriterOpts) fp
       return $ sfd & sfdLastSync .~ Just st
 

@@ -16,59 +16,62 @@
 </span><a name="line-16"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Sync</span><span class="hs-operator">.</span><span class="hs-identifier">File</span><span> </span><span class="hs-special">(</span><span>
 </span><a name="line-17"></a><span>    </span><a href="Text.Pandoc.Sync.File.html#SyncFileData"><span class="hs-identifier hs-type">SyncFileData</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
 </span><a name="line-18"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.File.html#SyncFile"><span class="hs-identifier hs-type">SyncFile</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
-</span><a name="line-19"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.File.html#sfSourcesSinks"><span class="hs-identifier hs-var">sfSourcesSinks</span></a><span>
-</span><a name="line-20"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.File.html#emptySyncFile"><span class="hs-identifier hs-var">emptySyncFile</span></a><span>
-</span><a name="line-21"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.File.html#runSyncFile"><span class="hs-identifier hs-var">runSyncFile</span></a><span>
-</span><a name="line-22"></a><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">PS</span><span>
-</span><a name="line-23"></a><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-24"></a><span>
-</span><a name="line-25"></a><span class="hs-comment">-- import qualified Data.Hashable             as Ha</span><span>
-</span><a name="line-26"></a><span class="hs-comment">-- import qualified Data.Text.Lazy.Encoding   as TL</span><span>
-</span><a name="line-27"></a><span class="hs-comment">-- import qualified Data.Text.Lazy.IO         as TL</span><span>
-</span><a name="line-28"></a><span class="hs-comment">-- import qualified Text.Pandoc.PDF           as P</span><span>
-</span><a name="line-29"></a><span class="hs-comment">-- import qualified Text.Pandoc.SelfContained as P</span><span>
-</span><a name="line-30"></a><span class="hs-comment">-- import qualified Text.Pandoc.UTF8          as UTF8</span><span>
-</span><a name="line-31"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Exception</span><span>
-</span><a name="line-32"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Lens</span><span> </span><span class="hs-keyword">hiding</span><span>          </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-operator hs-var">&lt;.&gt;</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><a name="line-33"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span>
-</span><a name="line-34"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span class="hs-operator">.</span><span class="hs-identifier">IO</span><span class="hs-operator">.</span><span class="hs-identifier">Class</span><span>
-</span><a name="line-35"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span class="hs-operator">.</span><span class="hs-identifier">Trans</span><span class="hs-operator">.</span><span class="hs-identifier">Except</span><span>
-</span><a name="line-36"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span class="hs-operator">.</span><span class="hs-identifier">Trans</span><span class="hs-operator">.</span><span class="hs-identifier">Maybe</span><span>
-</span><a name="line-37"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Crypto</span><span class="hs-operator">.</span><span class="hs-identifier">Hash</span><span class="hs-operator">.</span><span class="hs-identifier">MD5</span><span>              </span><span class="hs-special">(</span><span class="hs-identifier hs-var">hashlazy</span><span class="hs-special">)</span><span>
-</span><a name="line-38"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Binary</span><span class="hs-operator">.</span><span class="hs-identifier">Orphans</span><span>          </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
-</span><a name="line-39"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Dependent</span><span class="hs-operator">.</span><span class="hs-identifier">Sum</span><span>
-</span><a name="line-40"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Foldable</span><span>
-</span><a name="line-41"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Kind</span><span>
-</span><a name="line-42"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Monoid</span><span>
-</span><a name="line-43"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Ord</span><span>
-</span><a name="line-44"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span>
-</span><a name="line-45"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span class="hs-operator">.</span><span class="hs-identifier">Prelude</span><span class="hs-operator">.</span><span class="hs-identifier">Bool</span><span>
-</span><a name="line-46"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Time</span><span class="hs-operator">.</span><span class="hs-identifier">Clock</span><span>
-</span><a name="line-47"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Witherable</span><span>
-</span><a name="line-48"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">GHC</span><span class="hs-operator">.</span><span class="hs-identifier">Generics</span><span>                 </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">)</span><span>
-</span><a name="line-49"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">Directory</span><span>
-</span><a name="line-50"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">FilePath</span><span>
-</span><a name="line-51"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">IO</span><span class="hs-operator">.</span><span class="hs-identifier">Error</span><span>
-</span><a name="line-52"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">Log</span><span class="hs-operator">.</span><span class="hs-identifier">Logger</span><span>
-</span><a name="line-53"></a><span class="hs-keyword">import</span><span>           </span><a href="Text.Pandoc.Sync.Format.html"><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Sync</span><span class="hs-operator">.</span><span class="hs-identifier">Format</span></a><span>      </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">PS</span><span>
-</span><a name="line-54"></a><span class="hs-keyword">import</span><span>           </span><a href="Text.Pandoc.Sync.Writer.html"><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Sync</span><span class="hs-operator">.</span><span class="hs-identifier">Writer</span></a><span>
-</span><a name="line-55"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Printf</span><span>
-</span><a name="line-56"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Binary</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">Bi</span><span>
-</span><a name="line-57"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">ByteString</span><span class="hs-operator">.</span><span class="hs-identifier">Base16</span><span class="hs-operator">.</span><span class="hs-identifier">Lazy</span><span>  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">B16</span><span>
-</span><a name="line-58"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">ByteString</span><span class="hs-operator">.</span><span class="hs-identifier">Lazy</span><span>         </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">B</span><span>
-</span><a name="line-59"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Map</span><span>                     </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">M</span><span>
-</span><a name="line-60"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">OrdPSQ</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">PS</span><span>
-</span><a name="line-61"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
-</span><a name="line-62"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">MediaBag</span><span>         </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
-</span><a name="line-63"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Readers</span><span class="hs-operator">.</span><span class="hs-identifier">LaTeX</span><span>    </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
-</span><a name="line-64"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Shared</span><span>           </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
-</span><a name="line-65"></a><span>
-</span><a name="line-66"></a><span class="hs-keyword">data</span><span> </span><a name="Snapshot"><a href="Text.Pandoc.Sync.File.html#Snapshot"><span class="hs-identifier">Snapshot</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="Snap"><a href="Text.Pandoc.Sync.File.html#Snap"><span class="hs-identifier">Snap</span></a></a><span> </span><span class="hs-special">{</span><span> </span><a name="_snapTime"><a href="Text.Pandoc.Sync.File.html#_snapTime"><span class="hs-identifier">_snapTime</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">UTCTime</span><span>
-</span><a name="line-67"></a><span>                     </span><span class="hs-special">,</span><span> </span><a name="_snapHash"><a href="Text.Pandoc.Sync.File.html#_snapHash"><span class="hs-identifier">_snapHash</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">B</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">ByteString</span><span>
-</span><a name="line-68"></a><span>                     </span><span class="hs-special">}</span><span>
-</span><a name="line-69"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Eq</span><span class="hs-special">)</span><span>
-</span><a name="line-70"></a><span>
-</span><a name="line-71"></a><span class="hs-identifier hs-var">makeLenses</span><span> </span><span class="hs-char">''Snapshot
+</span><a name="line-19"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.File.html#ConflictMode"><span class="hs-identifier hs-type">ConflictMode</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><a name="line-20"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.File.html#sfSourcesSinks"><span class="hs-identifier hs-var">sfSourcesSinks</span></a><span>
+</span><a name="line-21"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.File.html#emptySyncFile"><span class="hs-identifier hs-var">emptySyncFile</span></a><span>
+</span><a name="line-22"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.File.html#runSyncFile"><span class="hs-identifier hs-var">runSyncFile</span></a><span>
+</span><a name="line-23"></a><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">PS</span><span>
+</span><a name="line-24"></a><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><a name="line-25"></a><span>
+</span><a name="line-26"></a><span class="hs-comment">-- import qualified Data.Hashable             as Ha</span><span>
+</span><a name="line-27"></a><span class="hs-comment">-- import qualified Data.Text.Lazy.Encoding   as TL</span><span>
+</span><a name="line-28"></a><span class="hs-comment">-- import qualified Data.Text.Lazy.IO         as TL</span><span>
+</span><a name="line-29"></a><span class="hs-comment">-- import qualified Text.Pandoc.PDF           as P</span><span>
+</span><a name="line-30"></a><span class="hs-comment">-- import qualified Text.Pandoc.SelfContained as P</span><span>
+</span><a name="line-31"></a><span class="hs-comment">-- import qualified Text.Pandoc.UTF8          as UTF8</span><span>
+</span><a name="line-32"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Exception</span><span>
+</span><a name="line-33"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Lens</span><span> </span><span class="hs-keyword">hiding</span><span>          </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-operator hs-var">&lt;.&gt;</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-34"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span>
+</span><a name="line-35"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span class="hs-operator">.</span><span class="hs-identifier">IO</span><span class="hs-operator">.</span><span class="hs-identifier">Class</span><span>
+</span><a name="line-36"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span class="hs-operator">.</span><span class="hs-identifier">Trans</span><span class="hs-operator">.</span><span class="hs-identifier">Except</span><span>
+</span><a name="line-37"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span class="hs-operator">.</span><span class="hs-identifier">Trans</span><span class="hs-operator">.</span><span class="hs-identifier">Maybe</span><span>
+</span><a name="line-38"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Crypto</span><span class="hs-operator">.</span><span class="hs-identifier">Hash</span><span class="hs-operator">.</span><span class="hs-identifier">MD5</span><span>              </span><span class="hs-special">(</span><span class="hs-identifier hs-var">hashlazy</span><span class="hs-special">)</span><span>
+</span><a name="line-39"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Binary</span><span class="hs-operator">.</span><span class="hs-identifier">Orphans</span><span>          </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><a name="line-40"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Dependent</span><span class="hs-operator">.</span><span class="hs-identifier">Sum</span><span>
+</span><a name="line-41"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Foldable</span><span>
+</span><a name="line-42"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Kind</span><span>
+</span><a name="line-43"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Monoid</span><span>
+</span><a name="line-44"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Ord</span><span>
+</span><a name="line-45"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span>
+</span><a name="line-46"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span class="hs-operator">.</span><span class="hs-identifier">Prelude</span><span class="hs-operator">.</span><span class="hs-identifier">Bool</span><span>
+</span><a name="line-47"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Time</span><span class="hs-operator">.</span><span class="hs-identifier">Clock</span><span>
+</span><a name="line-48"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Witherable</span><span>
+</span><a name="line-49"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">GHC</span><span class="hs-operator">.</span><span class="hs-identifier">Generics</span><span>                 </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">)</span><span>
+</span><a name="line-50"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">Directory</span><span>
+</span><a name="line-51"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">FilePath</span><span>
+</span><a name="line-52"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">IO</span><span class="hs-operator">.</span><span class="hs-identifier">Error</span><span>
+</span><a name="line-53"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">Log</span><span class="hs-operator">.</span><span class="hs-identifier">Logger</span><span>
+</span><a name="line-54"></a><span class="hs-keyword">import</span><span>           </span><a href="Text.Pandoc.Sync.Format.html"><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Sync</span><span class="hs-operator">.</span><span class="hs-identifier">Format</span></a><span>      </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">PS</span><span>
+</span><a name="line-55"></a><span class="hs-keyword">import</span><span>           </span><a href="Text.Pandoc.Sync.Writer.html"><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Sync</span><span class="hs-operator">.</span><span class="hs-identifier">Writer</span></a><span>
+</span><a name="line-56"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Printf</span><span>
+</span><a name="line-57"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Read</span><span>                    </span><span class="hs-special">(</span><span class="hs-identifier hs-var">readMaybe</span><span class="hs-special">)</span><span>
+</span><a name="line-58"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Binary</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">Bi</span><span>
+</span><a name="line-59"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">ByteString</span><span class="hs-operator">.</span><span class="hs-identifier">Base16</span><span class="hs-operator">.</span><span class="hs-identifier">Lazy</span><span>  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">B16</span><span>
+</span><a name="line-60"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">ByteString</span><span class="hs-operator">.</span><span class="hs-identifier">Lazy</span><span>         </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">B</span><span>
+</span><a name="line-61"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Map</span><span>                     </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">M</span><span>
+</span><a name="line-62"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">OrdPSQ</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">PS</span><span>
+</span><a name="line-63"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Set</span><span>                     </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">S</span><span>
+</span><a name="line-64"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-65"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">MediaBag</span><span>         </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-66"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Readers</span><span class="hs-operator">.</span><span class="hs-identifier">LaTeX</span><span>    </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-67"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Shared</span><span>           </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-68"></a><span>
+</span><a name="line-69"></a><span class="hs-keyword">data</span><span> </span><a name="Snapshot"><a href="Text.Pandoc.Sync.File.html#Snapshot"><span class="hs-identifier">Snapshot</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="Snap"><a href="Text.Pandoc.Sync.File.html#Snap"><span class="hs-identifier">Snap</span></a></a><span> </span><span class="hs-special">{</span><span> </span><a name="_snapTime"><a href="Text.Pandoc.Sync.File.html#_snapTime"><span class="hs-identifier">_snapTime</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">UTCTime</span><span>
+</span><a name="line-70"></a><span>                     </span><span class="hs-special">,</span><span> </span><a name="_snapHash"><a href="Text.Pandoc.Sync.File.html#_snapHash"><span class="hs-identifier">_snapHash</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">B</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">ByteString</span><span>
+</span><a name="line-71"></a><span>                     </span><span class="hs-special">}</span><span>
+</span><a name="line-72"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Eq</span><span class="hs-special">)</span><span>
+</span><a name="line-73"></a><span>
+</span><a name="line-74"></a><span class="hs-identifier hs-var">makeLenses</span><span> </span><span class="hs-char">''Snapshot
 
 instance Ord Snapshot where
     compare s1 s2 = comparing (view snapTime) s2 s1
@@ -137,8 +140,13 @@ sfSourcesSinks f s0 = f bigMap &lt;&amp;&gt; \bm -&gt;
       STrue  :=&gt; sfd -&gt; Left sfd
       SFalse :=&gt; sfd -&gt; Right sfd
 
-runSyncFile :: SyncFile -&gt; IO SyncFile
-runSyncFile s0 = do
+data ConflictMode = CMInteractive
+                  | CMNewest
+                  | CMOldest
+                  | CMIgnore
+
+runSyncFile :: ConflictMode -&gt; SyncFile -&gt; IO SyncFile
+runSyncFile cm s0 = do
     syncTime &lt;- getCurrentTime
     (updatesE, updates) &lt;- fmap (M.mapEither id . catMaybes)
              . ifor (s0 ^. sfSources) $ \fp sfd -&gt; runMaybeT $ do
@@ -152,7 +160,7 @@ runSyncFile s0 = do
       liftIO $ case sfd ^. sfdLastSync of
         Nothing -&gt; noticeM &quot;pandoc-sync&quot; $ printf &quot;%s updated for the first time at %s&quot;
                      fp (show (newSnap ^. snapTime))
-        Just sp -&gt; noticeM &quot;pandoc-sync&quot; $ printf &quot;%s updated at %s, from previous update at %s&quot;
+        Just sp -&gt; infoM &quot;pandoc-sync&quot; $ printf &quot;%s updated at %s, from previous update at %s&quot;
                      fp (show (newSnap ^. snapTime)) (show (sp ^. snapTime))
       epd &lt;- liftIO $ readPandoc (sfd ^. sfdFormat)
                                  (sfd ^. sfdReaderOpts . _Has . to fromReaderOptions)
@@ -164,10 +172,28 @@ runSyncFile s0 = do
           -- _         -&gt; Just $ Right (sfd ^. sfdLastSync, (newPd, mb))
           _         -&gt; Just $ Right (newSnap, (newPd, mb))
         Left e      -&gt; Just $ Left e
-    let sortedUpdates = mapToQueue id updates
-    case PS.minView sortedUpdates of
+    -- TODO: allow the user to pick which version to use
+    selected &lt;- case cm of
+      CMNewest -&gt; return
+                . over _Just (\(x, _, y, z) -&gt; (x, y, queueToMap (flip const) z))
+                . PS.minView
+                . mapToQueue (over _1 (view (snapTime . _Unwrapped @(Down _))))
+                $ updates
+      CMOldest -&gt; return
+                . over _Just (\(x, _, y, z) -&gt; (x, y, queueToMap (flip const) z))
+                . PS.minView
+                . mapToQueue (over _1 (view snapTime))
+                $ updates
+      CMInteractive -&gt;
+        let disp fp = printf &quot;%s (Updated at %s)&quot; fp (updates ^?! ix fp . _1 . snapTime . to show)
+        in  over _Just (\x -&gt; (x, snd (updates M.! x), fmap snd (M.delete x updates)))
+              &lt;$&gt; queryUser disp &quot;Conflict found!&quot; (M.keysSet updates)
+      CMIgnore -&gt; do
+        warningM &quot;pandoc-sync&quot; &quot;Conflict found, but ignoring.&quot;
+        return Nothing
+    case selected of
       Nothing -&gt; do
-        noticeM &quot;pandoc-sync&quot; &quot;No updates found&quot;
+        noticeM &quot;pandoc-sync&quot; &quot;No updates to handle&quot;
         case s0 ^? sfLastUpdate . _Just . to (\(_,pd,mb) -&gt; (pd, mb)) of
           Nothing -&gt; return s0
           Just (pd, mb) -&gt; do
@@ -178,10 +204,11 @@ runSyncFile s0 = do
               updateSource syncTime
                            (has (sfdLastSync . _Just) sfd &amp;&amp; exists)
                            pd mb fp' sfd
-      Just (fp, _, (pd, mb), laterUpdates) -&gt; do
+      Just (fp, (pd, mb), laterUpdates) -&gt; do
         noticeM &quot;pandoc-sync&quot; $ printf &quot;New update found, using %s&quot; fp
         itraverse_ backupError updatesE
-        itraverse_ backupLater $ queueToMap (flip const) laterUpdates
+        -- itraverse_ backupLater $ queueToMap (flip const) laterUpdates
+        itraverse_ backupLater laterUpdates
         let pdHash = B16.encode . B.fromStrict . hashlazy $ Bi.encode pd &lt;&gt; Bi.encode mb
         s0 &amp; sfLastUpdate                  .~ Just (Snap syncTime pdHash, pd, mb)
            &amp; sfSourcesSinks . itraversed %%@~ \fp' (s :=&gt; sfd) -&gt; withSingI s $ do
@@ -211,6 +238,27 @@ runSyncFile s0 = do
         writePandoc (sfd ^. sfdFormat) pd mb (sfd ^. sfdWriterOpts) fp
       hsh &lt;- hashFile fp
       return $ sfd &amp; sfdLastSync .~ Just (Snap st hsh)
+
+queryUser :: forall a. (a -&gt; String) -&gt; String -&gt; S.Set a -&gt; IO (Maybe a)
+queryUser f msg s | S.null s = return Nothing
+                  | otherwise = Just &lt;$&gt; do
+    putStrLn msg
+    iforOf_ folded s $ \i a -&gt;
+      printf &quot;%d) %s\n&quot; (i + 1) (f a)
+    putStrLn &quot;Select choice:&quot;
+    getChoice
+  where
+    getChoice :: IO a
+    getChoice = do
+      l &lt;- getLine
+      case readMaybe l of
+        Nothing -&gt;
+          putStrLn &quot;Please enter a valid number&quot; *&gt; getChoice
+        Just i  | i &lt; 1  || i &gt; S.size s -&gt;
+          putStrLn &quot;Out of range.&quot; *&gt; getChoice
+                | otherwise -&gt;
+          return $ S.elemAt (i - 1) s
+
 
 hashFile :: FilePath -&gt; IO B.ByteString
 hashFile fp = B16.encode . B.fromStrict . hashlazy &lt;$&gt; B.readFile fp

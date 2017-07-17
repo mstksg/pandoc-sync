@@ -22,6 +22,7 @@ module Text.Pandoc.Sync (
   ) where
 
 -- import           Control.Applicative
+-- import           Debug.Trace
 -- import qualified Data.Text           as T
 import           Control.Exception
 import           Control.Lens
@@ -33,12 +34,13 @@ import           Data.List
 import           Data.Maybe
 import           Data.Monoid
 import           Data.Singletons
-import           Debug.Trace
 import           GHC.Generics           (Generic)
 import           System.Directory
 import           System.FilePath
 import           System.IO.Error
+import           System.Log.Logger
 import           Text.Pandoc.Sync.File  as PS
+import           Text.Printf
 import qualified Data.Binary            as Bi
 import qualified Data.Map               as M
 import qualified Data.Set               as S
@@ -122,16 +124,19 @@ instance Bi.Binary Sync
 initSync :: SyncConfig -> IO Sync
 initSync sc = do
     createDirectoryIfMissing True (sc ^. scRoot)
-    res <- flip Sync (hash sc) <$> case sc ^. scDiscoverMode of
+    -- TODO: log "new files"
+    res <- case sc ^. scDiscoverMode of
       DMSameDir          ->
         fillSameDir . M.mapWithKey mkSF
-        -- . M.mapWithKey mkSF
           <$> discoverAll (sc ^. scFormats) (sc ^. scRoot)
       DMParallelTree rts ->
-        M.mapWithKey (fillParallel rts) . join traceShow . M.unionsWith mergeSF
+        M.mapWithKey (fillParallel rts) . M.unionsWith mergeSF
           <$> traverse (uncurry mkParallel) (M.toList rts)
-    print res
-    return res
+    forM_ (M.toList res) . uncurry $ \fd sf ->
+      infoM "pandoc-sync" $ printf "Consolidated file %s, consisting of paths %s"
+        (fd ^. fdBaseDir </> fd ^. fdFileName)
+        (show (sf ^.. sfSourcesSinks . to M.keys . traverse))
+    return $ Sync res (hash sc)
   where
     fillSameDir
         :: M.Map FileDiscover SyncFile
@@ -165,9 +170,6 @@ initSync sc = do
                     . M.mapWithKey mkSF
                     . over (mapKeys . fdBaseDir) (fromJust' (stripPrefix fullRt))
                     <$> discoverAll (M.singleton ex wf) fullRt
-               putStrLn "Making parallel:"
-               putStrLn fullRt
-               print res
                return res
     fillParallel :: M.Map FilePath FileExt -> FileDiscover -> SyncFile -> SyncFile
     fillParallel rts fd = over sfSourcesSinks (`M.union` filled)
@@ -223,7 +225,13 @@ discoverSync :: SyncConfig -> Sync -> IO Sync
 discoverSync sc s0 = addSync s0 <$> initSync sc
 
 runSync :: Sync -> IO Sync
-runSync = traverseOf (syncFiles . traverse) runSyncFile
+runSync = itraverseOf (syncFiles . itraversed) $ \fd sf -> do
+    debugM "pandoc-sync" $ printf "Syncing file %s"
+      (fd ^. fdBaseDir </> fd ^. fdFileName)
+    runSyncFile sf
+
+    -- debugM
+    -- runSyncFile
 
 loadSync :: SyncConfig -> IO Sync
 loadSync sc = do
@@ -235,7 +243,7 @@ loadSync sc = do
       Right s | s ^. syncConfHash == hash sc ->
         discoverSync sc s
               | otherwise                    -> do
-        putStrLn "Configuration changed"
+        warningM "pandoc-sync" "Configuration changed"
         removeFile (sc ^. scCache)
         initSync sc
       Left ()                                ->
@@ -259,25 +267,31 @@ discoverAll wfs rt = do
     isFile <- doesFileExist rt
     when isFile $ error "There's a file there, what gives?"
     createDirectoryIfMissing True rt
+    debugM "pandoc-sync" $ printf "Discovering files in %s with extensions in %s"
+        rt (show (M.keys wfs))
     res <- go rt
-    putStrLn $ "Found: " ++ show res
+    forM_ (M.toList res) . uncurry $ \fd exs ->
+      debugM "pandoc-sync" $ printf "Found file %s with extensions %s"
+        (fd ^. fdBaseDir </> fd ^. fdFileName)
+        (show (S.toList exs))
     return res
   where
     go :: FilePath -> IO (M.Map FileDiscover (S.Set FileExt))
     go fp0 = do
-        putStrLn $ "Searching directory " ++ fp0
+        debugM "pandoc-sync" $ printf "Searching directory %s" fp0
         fmap (M.unionsWith (<>)) . mapM process =<< listDirectory fp0
       where
         process :: FilePath -> IO (M.Map FileDiscover (S.Set FileExt))
         process fp1 = do
-          putStrLn $ "Processing " ++ fp1
-          isFile <- doesFileExist (fp0 </> fp1)
+          let fullPath = fp0 </> fp1
+          debugM "pandoc-sync" $ printf "Processing file %s" fullPath
+          isFile <- doesFileExist fullPath
           let (fn, drop 1 -> ex) = splitExtension fp1
           if isFile
             then return $ if ex `M.member` wfs
                    then M.singleton (FD fp0 fn) (S.singleton ex)
                    else M.empty
-            else go (fp0 </> fp1)
+            else go fullPath
 
 mapKeys :: (Ord k1, Ord k2) => Traversal (M.Map k1 v) (M.Map k2 v) k1 k2
 mapKeys f = fmap M.fromList . (traverse . _1) f . M.toList

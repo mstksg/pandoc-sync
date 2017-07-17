@@ -5,6 +5,7 @@ import           Control.Lens
 import           Control.Monad
 import           Data.Default
 import           Data.Yaml
+import           System.Log.Logger
 import           Text.Pandoc.Sync
 
 -- sc :: SyncConfig
@@ -32,6 +33,7 @@ main = do
     case sce of
       Left  e  -> print e
       Right sc -> do
+        updateGlobalLogger "pandoc-sync" (setLevel DEBUG)
         print sc
         withSync_ sc runSync
 

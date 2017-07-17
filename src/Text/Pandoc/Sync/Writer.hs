@@ -10,6 +10,7 @@ module Text.Pandoc.Sync.Writer (
   ) where
 
 -- import           Control.Monad.IO.Class
+-- import qualified Data.Text.Lazy.IO         as TL
 -- import qualified Text.Pandoc.MediaBag      as P
 -- import qualified Text.Pandoc.Options       as P
 -- import qualified Text.Pandoc.Readers.LaTeX as P
@@ -29,11 +30,12 @@ import           Data.Singletons.Prelude.Bool
 import           System.Directory
 import           System.FilePath
 import           System.IO.Error
+import           System.Log.Logger
 import           Text.Pandoc.Sync.Format
 import qualified Data.ByteString.Lazy         as B
 import qualified Data.Map                     as M
+import qualified Data.Text.Lazy               as TL
 import qualified Data.Text.Lazy.Encoding      as TL
-import qualified Data.Text.Lazy.IO            as TL
 import qualified Text.Pandoc                  as P
 import qualified Text.Pandoc.Lens.App         as P
 import qualified Text.Pandoc.MediaBag         as P
@@ -61,17 +63,15 @@ writePandoc ft pd bag wo fp = do
         FPDF pdft -> do
           let eng = pdfEngine pdft
           -- TODO: handle lack of prog?
-          mbPdfProg <- findExecutable eng
-          print $ has _Just mbPdfProg
+          -- mbPdfProg <- findExecutable eng
+          -- print $ has _Just mbPdfProg
           res <- P.makePDF eng f wo' pd
-          putStrLn $ "hey pdf! " ++ fp
           -- TODO: handle bad res?
           case res of
             Right res' -> B.writeFile (UTF8.encodePath fp) res'
             Left  err  -> do
-              putStrLn "Failed pdf?"
-              TL.putStrLn . TL.decodeUtf8 $ err
-              -- B.writeFile (UTF8.encodePath fp) err
+              errorM "pandoc-sync" "Failed to write PDF file"
+              errorM "pandoc-sync" $ TL.unpack (TL.decodeUtf8 err)
         _ -> do
             let res = f wo' pd
             out <- if htmlFormat ft

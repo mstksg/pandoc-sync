@@ -22,6 +22,7 @@ module Text.Pandoc.Sync.File (
   , module PS
   ) where
 
+-- import qualified Data.Hashable             as Ha
 -- import qualified Data.Text.Lazy.Encoding   as TL
 -- import qualified Data.Text.Lazy.IO         as TL
 -- import qualified Text.Pandoc.PDF           as P
@@ -39,6 +40,7 @@ import           Data.Dependent.Sum
 import           Data.Foldable
 import           Data.Kind
 import           Data.Monoid
+import           Data.Ord
 import           Data.Singletons
 import           Data.Singletons.Prelude.Bool
 import           Data.Time.Clock
@@ -47,13 +49,13 @@ import           GHC.Generics                 (Generic)
 import           System.Directory
 import           System.FilePath
 import           System.IO.Error
+import           System.Log.Logger
 import           Text.Pandoc.Sync.Format      as PS
 import           Text.Pandoc.Sync.Writer
 import           Text.Printf
 import qualified Data.Binary                  as Bi
 import qualified Data.ByteString.Base16.Lazy  as B16
 import qualified Data.ByteString.Lazy         as B
-import qualified Data.Hashable                as Ha
 import qualified Data.Map                     as M
 import qualified Data.OrdPSQ                  as PS
 import qualified Text.Pandoc                  as P
@@ -64,9 +66,13 @@ import qualified Text.Pandoc.Shared           as P
 data Snapshot = Snap { _snapTime :: UTCTime
                      , _snapHash :: B.ByteString
                      }
-  deriving (Generic, Show, Eq, Ord)
+  deriving (Generic, Show, Eq)
 
 makeLenses ''Snapshot
+
+instance Ord Snapshot where
+    compare s1 s2 = comparing (view snapTime) s2 s1
+                 <> comparing (view snapHash) s1 s2
 
 instance Bi.Binary Snapshot
 
@@ -86,7 +92,6 @@ instance SingI r => Bi.Binary (SyncFileData r)
 data SyncFile = SyncFile
     { _sfSources    :: M.Map FilePath (SyncFileData 'True )
     , _sfSinks      :: M.Map FilePath (SyncFileData 'False)
-    -- , _sfLastUpdate :: Maybe (UTCTime, P.Pandoc, P.MediaBag)
     , _sfLastUpdate :: Maybe (Snapshot, P.Pandoc, P.MediaBag)
     }
   deriving (Generic, Show)
@@ -135,7 +140,6 @@ sfSourcesSinks f s0 = f bigMap <&> \bm ->
 runSyncFile :: SyncFile -> IO SyncFile
 runSyncFile s0 = do
     syncTime <- getCurrentTime
-    -- putStrLn $ "Last mod time: " ++ show (sfd ^. sfdLastSync)
     (updatesE, updates) <- fmap (M.mapEither id . catMaybes)
              . ifor (s0 ^. sfSources) $ \fp sfd -> runMaybeT $ do
       newSnap <- MaybeT . liftIO
@@ -143,13 +147,13 @@ runSyncFile s0 = do
                            . tryJust (guard . isDoesNotExistError)
                            $
          Snap <$> getModificationTime fp <*> hashFile fp
-    -- s <- tryJust (guard . isDoesNotExistError) $ Bi.decodeFile (sc ^. scCache)
       mapM_ (guard . (`snapUpdated` newSnap)) (sfd ^. sfdLastSync)
       mapM_ (guard . (`snapUpdated` newSnap)) (s0  ^? sfLastUpdate . _Just . _1)
-      -- liftIO $ printf "Found updated source: %s (%s -> %s)\n"
-      --                 fp
-      --                 (show (sfd ^. sfdLastSync))
-      --                 (show modTime)
+      liftIO $ case sfd ^. sfdLastSync of
+        Nothing -> noticeM "pandoc-sync" $ printf "%s updated for the first time at %s"
+                     fp (show (newSnap ^. snapTime))
+        Just sp -> noticeM "pandoc-sync" $ printf "%s updated at %s, from previous update at %s"
+                     fp (show (newSnap ^. snapTime)) (show (sp ^. snapTime))
       epd <- liftIO $ readPandoc (sfd ^. sfdFormat)
                                  (sfd ^. sfdReaderOpts . _Has . to fromReaderOptions)
                                  fp
@@ -163,20 +167,19 @@ runSyncFile s0 = do
     let sortedUpdates = mapToQueue id updates
     case PS.minView sortedUpdates of
       Nothing -> do
-        putStrLn "No updates found"
+        noticeM "pandoc-sync" "No updates found"
         case s0 ^? sfLastUpdate . _Just . to (\(_,pd,mb) -> (pd, mb)) of
           Nothing -> return s0
           Just (pd, mb) -> do
-            putStrLn "Updating new sinks anyway"
             s0 & sfSinks . itraversed %%@~ \fp' sfd -> do
               exists <- doesFileExist fp'
+              when (has (sfdLastSync . _Just) sfd && exists) $
+                infoM "pandoc-syc" $ printf "Skipping update of %s (already exists)" fp'
               updateSource syncTime
                            (has (sfdLastSync . _Just) sfd && exists)
                            pd mb fp' sfd
       Just (fp, _, (pd, mb), laterUpdates) -> do
-        putStrLn "Updates found!"
-        putStrLn $ "Last update was " ++ show (s0 ^? sfLastUpdate . _Just . _1)
-        putStrLn $ "Using update from: " ++ fp
+        noticeM "pandoc-sync" $ printf "New update found, using %s" fp
         itraverse_ backupError updatesE
         itraverse_ backupLater $ queueToMap (flip const) laterUpdates
         let pdHash = B16.encode . B.fromStrict . hashlazy $ Bi.encode pd <> Bi.encode mb
@@ -186,9 +189,12 @@ runSyncFile s0 = do
                return $ s :=> sfd'
   where
     backupError :: FilePath -> P.PandocError -> IO ()
-    backupError fp _ = putStrLn $ "Error reading " ++ fp ++ " !"
+    backupError fp pe = do
+      errorM "pandoc-sync" $ printf "Error reading contents of %s!" fp
+      errorM "pandoc-sync" $ show pe
     backupLater :: FilePath -> (P.Pandoc, P.MediaBag) -> IO ()
-    backupLater fp _ = putStrLn $ "Update conflit! " ++ fp
+    backupLater fp _ =
+      errorM "pandoc-sync" $ printf "Backing up conflicting version at %s!" fp
     updateSource
         :: SingI r
         => UTCTime
@@ -201,9 +207,9 @@ runSyncFile s0 = do
     updateSource st skipWrite pd mb fp sfd = do
       createDirectoryIfMissing True (takeDirectory fp)
       unless skipWrite $ do
-        putStrLn $ "Updating " ++ fp
+        noticeM "pandoc-sync" $ printf "Writing to %s" fp
         writePandoc (sfd ^. sfdFormat) pd mb (sfd ^. sfdWriterOpts) fp
-      hsh <- catch (hashFile fp) (\e -> putStrLn "goodbye" *> throwIO @SomeException e)
+      hsh <- hashFile fp
       return $ sfd & sfdLastSync .~ Just (Snap st hsh)
 
 hashFile :: FilePath -> IO B.ByteString

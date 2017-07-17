@@ -150,11 +150,8 @@ runSyncFile cm s0 = do
     syncTime <- getCurrentTime
     (updatesE, updates) <- fmap (M.mapEither id . catMaybes)
              . ifor (s0 ^. sfSources) $ \fp sfd -> runMaybeT $ do
-      newSnap <- MaybeT . liftIO
-                           . fmap (either (const Nothing) Just)
-                           . tryJust (guard . isDoesNotExistError)
-                           $
-         Snap <$> getModificationTime fp <*> hashFile fp
+      liftIO . debugM "pandoc-sync" $ printf "Checking %s for updates" fp
+      newSnap <- MaybeT $ snapshot fp
       mapM_ (guard . (`snapUpdated` newSnap)) (sfd ^. sfdLastSync)
       mapM_ (guard . (`snapUpdated` newSnap)) (s0  ^? sfLastUpdate . _Just . _1)
       liftIO $ case sfd ^. sfdLastSync of
@@ -198,12 +195,19 @@ runSyncFile cm s0 = do
           Nothing -> return s0
           Just (pd, mb) -> do
             s0 & sfSinks . itraversed %%@~ \fp' sfd -> do
-              exists <- doesFileExist fp'
-              when (has (sfdLastSync . _Just) sfd && exists) $
-                infoM "pandoc-syc" $ printf "Skipping update of %s (already exists)" fp'
-              updateSource syncTime
-                           (has (sfdLastSync . _Just) sfd && exists)
-                           pd mb fp' sfd
+              snap <- snapshot fp'
+              skipping <- case sfd ^. sfdLastSync of
+                Nothing -> do
+                  infoM "pandoc-sync" $ printf "Updating %s for the first time" fp'
+                  return False
+                Just snap0 -> case snap of
+                  Just snap1 | not (snap0 `snapUpdated` snap1) -> do
+                    debugM "pandoc-sync" $ printf "Skipping update of %s" fp'
+                    return True
+                  _ -> do
+                    infoM "pandoc-sync" $ printf "%s desynchronized, updating ..." fp'
+                    return False
+              updateSource syncTime skipping pd mb fp' sfd
       Just (fp, (pd, mb), laterUpdates) -> do
         noticeM "pandoc-sync" $ printf "New update found, using %s" fp
         itraverse_ backupError updatesE
@@ -241,6 +245,7 @@ runSyncFile cm s0 = do
 
 queryUser :: forall a. (a -> String) -> String -> S.Set a -> IO (Maybe a)
 queryUser f msg s | S.null s = return Nothing
+                  | S.size s == 1 = return $ Just (S.elemAt 0 s)
                   | otherwise = Just <$> do
     putStrLn msg
     iforOf_ folded s $ \i a ->
@@ -262,6 +267,10 @@ queryUser f msg s | S.null s = return Nothing
 
 hashFile :: FilePath -> IO B.ByteString
 hashFile fp = B16.encode . B.fromStrict . hashlazy <$> B.readFile fp
+
+snapshot :: FilePath -> IO (Maybe Snapshot)
+snapshot fp = fmap (either (const Nothing) Just) . tryJust (guard . isDoesNotExistError) $
+    Snap <$> getModificationTime fp <*> hashFile fp
 
 mapToQueue
     :: (Ord k, Ord p)

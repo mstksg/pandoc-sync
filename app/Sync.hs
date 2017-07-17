@@ -34,7 +34,6 @@ parseOpts =
                , pure NOTICE
                ]
       <*> switch   ( long "clean"
-                  <> short 'c'
                   <> help "Clean the cache"
                    )
       <*> asum [ flagOf CMInteractive "interactive" (Just 'i') "Solve conflicts interactively"

@@ -16,6 +16,7 @@
 module Text.Pandoc.Sync.File (
     SyncFileData(..)
   , SyncFile(..)
+  , ConflictMode(..)
   , sfSourcesSinks
   , emptySyncFile
   , runSyncFile
@@ -53,11 +54,13 @@ import           System.Log.Logger
 import           Text.Pandoc.Sync.Format      as PS
 import           Text.Pandoc.Sync.Writer
 import           Text.Printf
+import           Text.Read                    (readMaybe)
 import qualified Data.Binary                  as Bi
 import qualified Data.ByteString.Base16.Lazy  as B16
 import qualified Data.ByteString.Lazy         as B
 import qualified Data.Map                     as M
 import qualified Data.OrdPSQ                  as PS
+import qualified Data.Set                     as S
 import qualified Text.Pandoc                  as P
 import qualified Text.Pandoc.MediaBag         as P
 import qualified Text.Pandoc.Readers.LaTeX    as P
@@ -137,8 +140,13 @@ sfSourcesSinks f s0 = f bigMap <&> \bm ->
       STrue  :=> sfd -> Left sfd
       SFalse :=> sfd -> Right sfd
 
-runSyncFile :: SyncFile -> IO SyncFile
-runSyncFile s0 = do
+data ConflictMode = CMInteractive
+                  | CMNewest
+                  | CMOldest
+                  | CMIgnore
+
+runSyncFile :: ConflictMode -> SyncFile -> IO SyncFile
+runSyncFile cm s0 = do
     syncTime <- getCurrentTime
     (updatesE, updates) <- fmap (M.mapEither id . catMaybes)
              . ifor (s0 ^. sfSources) $ \fp sfd -> runMaybeT $ do
@@ -152,7 +160,7 @@ runSyncFile s0 = do
       liftIO $ case sfd ^. sfdLastSync of
         Nothing -> noticeM "pandoc-sync" $ printf "%s updated for the first time at %s"
                      fp (show (newSnap ^. snapTime))
-        Just sp -> noticeM "pandoc-sync" $ printf "%s updated at %s, from previous update at %s"
+        Just sp -> infoM "pandoc-sync" $ printf "%s updated at %s, from previous update at %s"
                      fp (show (newSnap ^. snapTime)) (show (sp ^. snapTime))
       epd <- liftIO $ readPandoc (sfd ^. sfdFormat)
                                  (sfd ^. sfdReaderOpts . _Has . to fromReaderOptions)
@@ -164,10 +172,28 @@ runSyncFile s0 = do
           -- _         -> Just $ Right (sfd ^. sfdLastSync, (newPd, mb))
           _         -> Just $ Right (newSnap, (newPd, mb))
         Left e      -> Just $ Left e
-    let sortedUpdates = mapToQueue id updates
-    case PS.minView sortedUpdates of
+    -- TODO: allow the user to pick which version to use
+    selected <- case cm of
+      CMNewest -> return
+                . over _Just (\(x, _, y, z) -> (x, y, queueToMap (flip const) z))
+                . PS.minView
+                . mapToQueue (over _1 (view (snapTime . _Unwrapped @(Down _))))
+                $ updates
+      CMOldest -> return
+                . over _Just (\(x, _, y, z) -> (x, y, queueToMap (flip const) z))
+                . PS.minView
+                . mapToQueue (over _1 (view snapTime))
+                $ updates
+      CMInteractive ->
+        let disp fp = printf "%s (Updated at %s)" fp (updates ^?! ix fp . _1 . snapTime . to show)
+        in  over _Just (\x -> (x, snd (updates M.! x), fmap snd (M.delete x updates)))
+              <$> queryUser disp "Conflict found!" (M.keysSet updates)
+      CMIgnore -> do
+        warningM "pandoc-sync" "Conflict found, but ignoring."
+        return Nothing
+    case selected of
       Nothing -> do
-        noticeM "pandoc-sync" "No updates found"
+        noticeM "pandoc-sync" "No updates to handle"
         case s0 ^? sfLastUpdate . _Just . to (\(_,pd,mb) -> (pd, mb)) of
           Nothing -> return s0
           Just (pd, mb) -> do
@@ -178,10 +204,11 @@ runSyncFile s0 = do
               updateSource syncTime
                            (has (sfdLastSync . _Just) sfd && exists)
                            pd mb fp' sfd
-      Just (fp, _, (pd, mb), laterUpdates) -> do
+      Just (fp, (pd, mb), laterUpdates) -> do
         noticeM "pandoc-sync" $ printf "New update found, using %s" fp
         itraverse_ backupError updatesE
-        itraverse_ backupLater $ queueToMap (flip const) laterUpdates
+        -- itraverse_ backupLater $ queueToMap (flip const) laterUpdates
+        itraverse_ backupLater laterUpdates
         let pdHash = B16.encode . B.fromStrict . hashlazy $ Bi.encode pd <> Bi.encode mb
         s0 & sfLastUpdate                  .~ Just (Snap syncTime pdHash, pd, mb)
            & sfSourcesSinks . itraversed %%@~ \fp' (s :=> sfd) -> withSingI s $ do
@@ -211,6 +238,27 @@ runSyncFile s0 = do
         writePandoc (sfd ^. sfdFormat) pd mb (sfd ^. sfdWriterOpts) fp
       hsh <- hashFile fp
       return $ sfd & sfdLastSync .~ Just (Snap st hsh)
+
+queryUser :: forall a. (a -> String) -> String -> S.Set a -> IO (Maybe a)
+queryUser f msg s | S.null s = return Nothing
+                  | otherwise = Just <$> do
+    putStrLn msg
+    iforOf_ folded s $ \i a ->
+      printf "%d) %s\n" (i + 1) (f a)
+    putStrLn "Select choice:"
+    getChoice
+  where
+    getChoice :: IO a
+    getChoice = do
+      l <- getLine
+      case readMaybe l of
+        Nothing ->
+          putStrLn "Please enter a valid number" *> getChoice
+        Just i  | i < 1  || i > S.size s ->
+          putStrLn "Out of range." *> getChoice
+                | otherwise ->
+          return $ S.elemAt (i - 1) s
+
 
 hashFile :: FilePath -> IO B.ByteString
 hashFile fp = B16.encode . B.fromStrict . hashlazy <$> B.readFile fp

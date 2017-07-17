@@ -1,10 +1,11 @@
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TupleSections     #-}
-{-# LANGUAGE TypeOperators     #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 module Text.Pandoc.Sync (
     FileExt
@@ -26,6 +27,8 @@ module Text.Pandoc.Sync (
 import           Control.Exception
 import           Control.Lens
 import           Control.Monad
+import           Control.Monad.IO.Class
+import           Control.Monad.Logger
 import           Data.Aeson
 import           Data.Dependent.Sum
 import           Data.Hashable
@@ -119,9 +122,9 @@ makeLenses ''Sync
 
 instance Bi.Binary Sync
 
-initSync :: SyncConfig -> IO Sync
+initSync :: forall m. MonadLoggerIO m => SyncConfig -> m Sync
 initSync sc = do
-    createDirectoryIfMissing True (sc ^. scRoot)
+    liftIO $ createDirectoryIfMissing True (sc ^. scRoot)
     res <- flip Sync (hash sc) <$> case sc ^. scDiscoverMode of
       DMSameDir          ->
         fillSameDir . M.mapWithKey mkSF
@@ -130,7 +133,7 @@ initSync sc = do
       DMParallelTree rts ->
         M.mapWithKey (fillParallel rts) . join traceShow . M.unionsWith mergeSF
           <$> traverse (uncurry mkParallel) (M.toList rts)
-    print res
+    liftIO $ print res
     return res
   where
     fillSameDir
@@ -155,7 +158,7 @@ initSync sc = do
                                             (fo ^. foWriterOpts . _Has)
                                             Nothing
                 fullPath = fd ^. fdBaseDir </> fd ^. fdFileName -<.> ex
-    mkParallel :: FilePath -> FileExt -> IO (M.Map FileDiscover SyncFile)
+    mkParallel :: FilePath -> FileExt -> m (M.Map FileDiscover SyncFile)
     mkParallel rt ex = case sc ^? scFormats . ix ex of
       -- TODO: handle bad format?
       Nothing -> return M.empty
@@ -165,9 +168,10 @@ initSync sc = do
                     . M.mapWithKey mkSF
                     . over (mapKeys . fdBaseDir) (fromJust' (stripPrefix fullRt))
                     <$> discoverAll (M.singleton ex wf) fullRt
-               putStrLn "Making parallel:"
-               putStrLn fullRt
-               print res
+               liftIO $ do
+                 putStrLn "Making parallel:"
+                 putStrLn fullRt
+                 print res
                return res
     fillParallel :: M.Map FilePath FileExt -> FileDiscover -> SyncFile -> SyncFile
     fillParallel rts fd = over sfSourcesSinks (`M.union` filled)
@@ -219,15 +223,16 @@ addSync s0 s1 = s0 & syncFiles %~ M.unionWith go (s1 ^. syncFiles)
     go :: SyncFile -> SyncFile -> SyncFile
     go sf1 sf0 = sf0 & sfSourcesSinks %~ (`M.union` (sf1 ^. sfSourcesSinks))
 
-discoverSync :: SyncConfig -> Sync -> IO Sync
+discoverSync :: MonadLoggerIO m => SyncConfig -> Sync -> m Sync
 discoverSync sc s0 = addSync s0 <$> initSync sc
 
-runSync :: Sync -> IO Sync
+runSync :: MonadLoggerIO m => Sync -> m Sync
 runSync = traverseOf (syncFiles . traverse) runSyncFile
 
-loadSync :: SyncConfig -> IO Sync
+loadSync :: MonadLoggerIO m => SyncConfig -> m Sync
 loadSync sc = do
-    es <- fmap join
+    es <- liftIO
+        . fmap join
         . tryJust (guard . isDoesNotExistError)
         . set (mapped . _Left) ()
         $ Bi.decodeFileOrFail (sc ^. scCache)
@@ -235,43 +240,46 @@ loadSync sc = do
       Right s | s ^. syncConfHash == hash sc ->
         discoverSync sc s
               | otherwise                    -> do
-        putStrLn "Configuration changed"
-        removeFile (sc ^. scCache)
+        liftIO $ do
+          putStrLn "Configuration changed"
+          removeFile (sc ^. scCache)
         initSync sc
       Left ()                                ->
         initSync sc
 
-withSync :: SyncConfig -> (Sync -> IO (r, Sync)) -> IO r
+withSync :: MonadLoggerIO m => SyncConfig -> (Sync -> m (r, Sync)) -> m r
 withSync sc f = do
     s0 <- loadSync sc
     (y, s1) <- f s0
-    Bi.encodeFile (sc ^. scCache) s1
+    liftIO $ Bi.encodeFile (sc ^. scCache) s1
     return y
 
-withSync_ :: SyncConfig -> (Sync -> IO Sync) -> IO ()
+withSync_ :: MonadLoggerIO m => SyncConfig -> (Sync -> m Sync) -> m ()
 withSync_ sc f = withSync sc (fmap ((),) . f)
 
 discoverAll
-    :: M.Map FileExt (Writer FormatOptions)
+    :: forall m. MonadLoggerIO m
+    => M.Map FileExt (Writer FormatOptions)
     -> FilePath
-    -> IO (M.Map FileDiscover (S.Set FileExt))
+    -> m (M.Map FileDiscover (S.Set FileExt))
 discoverAll wfs rt = do
-    isFile <- doesFileExist rt
-    when isFile $ error "There's a file there, what gives?"
-    createDirectoryIfMissing True rt
+    liftIO $ do
+      isFile <- doesFileExist rt
+      when isFile $ error "There's a file there, what gives?"
+      createDirectoryIfMissing True rt
     res <- go rt
-    putStrLn $ "Found: " ++ show res
+    liftIO $ putStrLn $ "Found: " ++ show res
     return res
   where
-    go :: FilePath -> IO (M.Map FileDiscover (S.Set FileExt))
+    go :: FilePath -> m (M.Map FileDiscover (S.Set FileExt))
     go fp0 = do
-        putStrLn $ "Searching directory " ++ fp0
-        fmap (M.unionsWith (<>)) . mapM process =<< listDirectory fp0
+        liftIO $ putStrLn $ "Searching directory " ++ fp0
+        fmap (M.unionsWith (<>)) . mapM process =<< liftIO (listDirectory fp0)
       where
-        process :: FilePath -> IO (M.Map FileDiscover (S.Set FileExt))
+        process :: FilePath -> m (M.Map FileDiscover (S.Set FileExt))
         process fp1 = do
-          putStrLn $ "Processing " ++ fp1
-          isFile <- doesFileExist (fp0 </> fp1)
+          liftIO $ putStrLn $ "Processing " ++ fp1
+          isFile <- liftIO $ doesFileExist (fp0 </> fp1)
           let (fn, drop 1 -> ex) = splitExtension fp1
           if isFile
             then return $ if ex `M.member` wfs

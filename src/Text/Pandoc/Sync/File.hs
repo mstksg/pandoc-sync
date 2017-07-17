@@ -22,6 +22,7 @@ module Text.Pandoc.Sync.File (
   , module PS
   ) where
 
+-- import qualified Data.Hashable             as Ha
 -- import qualified Data.Text.Lazy.Encoding   as TL
 -- import qualified Data.Text.Lazy.IO         as TL
 -- import qualified Text.Pandoc.PDF           as P
@@ -31,6 +32,7 @@ import           Control.Exception
 import           Control.Lens hiding          ((<.>))
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Control.Monad.Logger
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
 import           Crypto.Hash.MD5              (hashlazy)
@@ -53,7 +55,6 @@ import           Text.Printf
 import qualified Data.Binary                  as Bi
 import qualified Data.ByteString.Base16.Lazy  as B16
 import qualified Data.ByteString.Lazy         as B
-import qualified Data.Hashable                as Ha
 import qualified Data.Map                     as M
 import qualified Data.OrdPSQ                  as PS
 import qualified Text.Pandoc                  as P
@@ -132,9 +133,9 @@ sfSourcesSinks f s0 = f bigMap <&> \bm ->
       STrue  :=> sfd -> Left sfd
       SFalse :=> sfd -> Right sfd
 
-runSyncFile :: SyncFile -> IO SyncFile
+runSyncFile :: forall m. MonadLoggerIO m => SyncFile -> m SyncFile
 runSyncFile s0 = do
-    syncTime <- getCurrentTime
+    syncTime <- liftIO $ getCurrentTime
     -- putStrLn $ "Last mod time: " ++ show (sfd ^. sfdLastSync)
     (updatesE, updates) <- fmap (M.mapEither id . catMaybes)
              . ifor (s0 ^. sfSources) $ \fp sfd -> runMaybeT $ do
@@ -163,20 +164,21 @@ runSyncFile s0 = do
     let sortedUpdates = mapToQueue id updates
     case PS.minView sortedUpdates of
       Nothing -> do
-        putStrLn "No updates found"
+        liftIO $ putStrLn "No updates found"
         case s0 ^? sfLastUpdate . _Just . to (\(_,pd,mb) -> (pd, mb)) of
           Nothing -> return s0
           Just (pd, mb) -> do
-            putStrLn "Updating new sinks anyway"
+            liftIO $ putStrLn "Updating new sinks anyway"
             s0 & sfSinks . itraversed %%@~ \fp' sfd -> do
-              exists <- doesFileExist fp'
+              exists <- liftIO $ doesFileExist fp'
               updateSource syncTime
                            (has (sfdLastSync . _Just) sfd && exists)
                            pd mb fp' sfd
       Just (fp, _, (pd, mb), laterUpdates) -> do
-        putStrLn "Updates found!"
-        putStrLn $ "Last update was " ++ show (s0 ^? sfLastUpdate . _Just . _1)
-        putStrLn $ "Using update from: " ++ fp
+        liftIO $ do
+          putStrLn "Updates found!"
+          putStrLn $ "Last update was " ++ show (s0 ^? sfLastUpdate . _Just . _1)
+          putStrLn $ "Using update from: " ++ fp
         itraverse_ backupError updatesE
         itraverse_ backupLater $ queueToMap (flip const) laterUpdates
         let pdHash = B16.encode . B.fromStrict . hashlazy $ Bi.encode pd <> Bi.encode mb
@@ -185,10 +187,10 @@ runSyncFile s0 = do
                sfd' <- updateSource syncTime (fp == fp') pd mb fp' sfd
                return $ s :=> sfd'
   where
-    backupError :: FilePath -> P.PandocError -> IO ()
-    backupError fp _ = putStrLn $ "Error reading " ++ fp ++ " !"
-    backupLater :: FilePath -> (P.Pandoc, P.MediaBag) -> IO ()
-    backupLater fp _ = putStrLn $ "Update conflit! " ++ fp
+    backupError :: FilePath -> P.PandocError -> m ()
+    backupError fp _ = liftIO . putStrLn $ "Error reading " ++ fp ++ " !"
+    backupLater :: FilePath -> (P.Pandoc, P.MediaBag) -> m ()
+    backupLater fp _ = liftIO . putStrLn $ "Update conflit! " ++ fp
     updateSource
         :: SingI r
         => UTCTime
@@ -197,10 +199,10 @@ runSyncFile s0 = do
         -> P.MediaBag
         -> FilePath
         -> SyncFileData r
-        -> IO (SyncFileData r)
-    updateSource st skipWrite pd mb fp sfd = do
+        -> m (SyncFileData r)
+    updateSource st skipWrite pd mb fp sfd = liftIO $ do
       createDirectoryIfMissing True (takeDirectory fp)
-      unless skipWrite $ do
+      unless skipWrite . liftIO $ do
         putStrLn $ "Updating " ++ fp
         writePandoc (sfd ^. sfdFormat) pd mb (sfd ^. sfdWriterOpts) fp
       hsh <- catch (hashFile fp) (\e -> putStrLn "goodbye" *> throwIO @SomeException e)

@@ -3,6 +3,7 @@
 
 import           Control.Lens
 import           Control.Monad
+import           Control.Monad.Logger
 import           Data.Default
 import           Data.Yaml
 import           Text.Pandoc.Sync
@@ -33,5 +34,5 @@ main = do
       Left  e  -> print e
       Right sc -> do
         print sc
-        withSync_ sc runSync
+        runStderrLoggingT $ withSync_ sc runSync
 

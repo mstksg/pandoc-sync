@@ -5,6 +5,7 @@
 {-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE StandaloneDeriving   #-}
+{-# LANGUAGE StrictData           #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TupleSections        #-}
 {-# LANGUAGE TypeApplications     #-}
@@ -32,10 +33,12 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
+import           Crypto.Hash.MD5              (hashlazy)
 import           Data.Binary.Orphans          ()
 import           Data.Dependent.Sum
 import           Data.Foldable
 import           Data.Kind
+import           Data.Monoid
 import           Data.Singletons
 import           Data.Singletons.Prelude.Bool
 import           Data.Time.Clock
@@ -48,7 +51,9 @@ import           Text.Pandoc.Sync.Format      as PS
 import           Text.Pandoc.Sync.Writer
 import           Text.Printf
 import qualified Data.Binary                  as Bi
+import qualified Data.ByteString.Base16.Lazy  as B16
 import qualified Data.ByteString.Lazy         as B
+import qualified Data.Hashable                as Ha
 import qualified Data.Map                     as M
 import qualified Data.OrdPSQ                  as PS
 import qualified Text.Pandoc                  as P
@@ -56,11 +61,20 @@ import qualified Text.Pandoc.MediaBag         as P
 import qualified Text.Pandoc.Readers.LaTeX    as P
 import qualified Text.Pandoc.Shared           as P
 
+data Snapshot = Snap { _snapTime :: UTCTime
+                     , _snapHash :: B.ByteString
+                     }
+  deriving (Generic, Show, Eq, Ord)
+
+makeLenses ''Snapshot
+
+instance Bi.Binary Snapshot
+
 data SyncFileData :: Bool -> Type where
     SyncFileData :: { _sfdFormat     :: Format r 'True
                     , _sfdReaderOpts :: HasIf r ReaderOptions
                     , _sfdWriterOpts :: WriterOptions
-                    , _sfdLastSync   :: Maybe UTCTime
+                    , _sfdLastSync   :: Maybe Snapshot
                     }
                  -> SyncFileData r
   deriving (Generic, Show)
@@ -72,7 +86,8 @@ instance SingI r => Bi.Binary (SyncFileData r)
 data SyncFile = SyncFile
     { _sfSources    :: M.Map FilePath (SyncFileData 'True )
     , _sfSinks      :: M.Map FilePath (SyncFileData 'False)
-    , _sfLastUpdate :: Maybe (UTCTime, P.Pandoc, P.MediaBag)
+    -- , _sfLastUpdate :: Maybe (UTCTime, P.Pandoc, P.MediaBag)
+    , _sfLastUpdate :: Maybe (Snapshot, P.Pandoc, P.MediaBag)
     }
   deriving (Generic, Show)
 
@@ -117,54 +132,24 @@ sfSourcesSinks f s0 = f bigMap <&> \bm ->
       STrue  :=> sfd -> Left sfd
       SFalse :=> sfd -> Right sfd
 
--- discoverSyncFile :: SyncFile -> IO SyncFile
--- discoverSyncFile s0 = do
---     news <- fmap (maybe M.empty (M.fromList . map swap . M.toList . catMaybes))
---           . forM (s0 ^. syncDiscover) . uncurry $ \fname mode ->
---       forM (discFiles fname mode) $ \fp -> runMaybeT $ do
---         guard $ M.notMember fp (s0 ^. sfSources)
---         guard $ M.notMember fp (s0 ^. sfSinks  )
---         guard =<< liftIO (doesPathExist fp)
---         return fp
---     return $ s0 & sfSourcesSinks %~ (`M.union` M.map mkNew news)
---   where
---     discFiles :: String -> DiscoverMode -> M.Map WriterFormat FilePath
---     discFiles fname = \case
---       DMSameDir fs d   -> fs <&> \ext      -> d </> fname </> ext
---       DMParallelDir fs -> fs <&> \(d, ext) -> d </> fname </> ext
---     mkNew :: WriterFormat -> Some (Sing :&: SyncFileData)
---     mkNew = \case
---       WriterFormat fm ->
---         let sB = sing
---             ro = case sB of
---               SFalse -> ROUnreadable
---               STrue  -> ROReadable P.def
---         in  Some (sB :&: SyncFileData fm ro P.def Nothing)
-
 runSyncFile :: SyncFile -> IO SyncFile
 runSyncFile s0 = do
     syncTime <- getCurrentTime
     -- putStrLn $ "Last mod time: " ++ show (sfd ^. sfdLastSync)
     (updatesE, updates) <- fmap (M.mapEither id . catMaybes)
              . ifor (s0 ^. sfSources) $ \fp sfd -> runMaybeT $ do
-      modTime <- MaybeT
-               . liftIO
-               . fmap (either (const Nothing) Just)
-               . tryJust (guard . isDoesNotExistError)
-               $ getModificationTime fp
+      newSnap <- MaybeT . liftIO
+                           . fmap (either (const Nothing) Just)
+                           . tryJust (guard . isDoesNotExistError)
+                           $
+         Snap <$> getModificationTime fp <*> hashFile fp
     -- s <- tryJust (guard . isDoesNotExistError) $ Bi.decodeFile (sc ^. scCache)
-      case sfd ^. sfdLastSync of
-        Nothing  -> return ()
-        Just mt0 -> do
-          guard $ mt0 `utclt` modTime
-      case s0 ^? sfLastUpdate . _Just . _1 of
-        Nothing -> return ()
-        Just s0mt -> guard $ s0mt `utclt` modTime
-        -- s0 & sfLastUpdate                  .~ Just (syncTime, pd, mb)
-      liftIO $ printf "Found updated source: %s (%s -> %s)\n"
-                      fp
-                      (show (sfd ^. sfdLastSync))
-                      (show modTime)
+      mapM_ (guard . (`snapUpdated` newSnap)) (sfd ^. sfdLastSync)
+      mapM_ (guard . (`snapUpdated` newSnap)) (s0  ^? sfLastUpdate . _Just . _1)
+      -- liftIO $ printf "Found updated source: %s (%s -> %s)\n"
+      --                 fp
+      --                 (show (sfd ^. sfdLastSync))
+      --                 (show modTime)
       epd <- liftIO $ readPandoc (sfd ^. sfdFormat)
                                  (sfd ^. sfdReaderOpts . _Has . to fromReaderOptions)
                                  fp
@@ -173,7 +158,7 @@ runSyncFile s0 = do
           Just oldPd | oldPd == newPd
                     -> Nothing
           -- _         -> Just $ Right (sfd ^. sfdLastSync, (newPd, mb))
-          _         -> Just $ Right (modTime, (newPd, mb))
+          _         -> Just $ Right (newSnap, (newPd, mb))
         Left e      -> Just $ Left e
     let sortedUpdates = mapToQueue id updates
     case PS.minView sortedUpdates of
@@ -182,22 +167,24 @@ runSyncFile s0 = do
         case s0 ^? sfLastUpdate . _Just . to (\(_,pd,mb) -> (pd, mb)) of
           Nothing -> return s0
           Just (pd, mb) -> do
-            putStrLn "Updating sinks anyway"
-            s0 & sfSinks . itraversed %%@~ \fp' sfd ->
-              updateSource syncTime False pd mb fp' sfd
+            putStrLn "Updating new sinks anyway"
+            s0 & sfSinks . itraversed %%@~ \fp' sfd -> do
+              exists <- doesFileExist fp'
+              updateSource syncTime
+                           (has (sfdLastSync . _Just) sfd && exists)
+                           pd mb fp' sfd
       Just (fp, _, (pd, mb), laterUpdates) -> do
         putStrLn "Updates found!"
         putStrLn $ "Last update was " ++ show (s0 ^? sfLastUpdate . _Just . _1)
         putStrLn $ "Using update from: " ++ fp
         itraverse_ backupError updatesE
         itraverse_ backupLater $ queueToMap (flip const) laterUpdates
-        s0 & sfLastUpdate                  .~ Just (syncTime, pd, mb)
+        let pdHash = B16.encode . B.fromStrict . hashlazy $ Bi.encode pd <> Bi.encode mb
+        s0 & sfLastUpdate                  .~ Just (Snap syncTime pdHash, pd, mb)
            & sfSourcesSinks . itraversed %%@~ \fp' (s :=> sfd) -> withSingI s $ do
                sfd' <- updateSource syncTime (fp == fp') pd mb fp' sfd
                return $ s :=> sfd'
   where
-    utclt :: UTCTime -> UTCTime -> Bool
-    utclt t1 t2 = (t2 `diffUTCTime` t1) > 0.5       -- threshold for equality (seconds)
     backupError :: FilePath -> P.PandocError -> IO ()
     backupError fp _ = putStrLn $ "Error reading " ++ fp ++ " !"
     backupLater :: FilePath -> (P.Pandoc, P.MediaBag) -> IO ()
@@ -216,60 +203,11 @@ runSyncFile s0 = do
       unless skipWrite $ do
         putStrLn $ "Updating " ++ fp
         writePandoc (sfd ^. sfdFormat) pd mb (sfd ^. sfdWriterOpts) fp
-      return $ sfd & sfdLastSync .~ Just st
+      hsh <- catch (hashFile fp) (\e -> putStrLn "goodbye" *> throwIO @SomeException e)
+      return $ sfd & sfdLastSync .~ Just (Snap st hsh)
 
-    -- :: Format r 'True
-    -- -> P.Pandoc
-    -- -> WriterOptions
-    -- -> FilePath
-
-      -- case formatWriter (sfd ^. sfdFormat) of
-      --   P.IOStringWriter f ->
-      --     UTF8.writeFile fp                =<< f (sfdWO sfd) pd
-      --   P.IOByteStringWriter f ->
-      --     B.writeFile (UTF8.encodePath fp) =<< f (sfdWO sfd) pd
-      --   P.PureStringWriter f -> case sfd ^. sfdFormat of
-      --     FPDF pdft -> do
-      --       let eng = pdfEngine pdft
-      --       -- TODO: handle lack of prog?
-      --       mbPdfProg <- findExecutable eng
-      --       print $ has _Just mbPdfProg
-      --       let wo = sfdWO sfd
-      --       res <- P.makePDF eng f wo pd
-      --       putStrLn $ "hey pdf! " ++ fp
-      --       -- TODO: handle bad res?
-      --       case res of
-      --         Right res' -> B.writeFile (UTF8.encodePath fp) res'
-      --         Left  err  -> do
-      --           putStrLn "Failed pdf?"
-      --           TL.putStrLn . TL.decodeUtf8 $ err
-      --           -- B.writeFile (UTF8.encodePath fp) err
-      --     _ -> do
-      --         let res = f (sfdWO sfd) pd
-      --         out <- if htmlFormat (sfd ^. sfdFormat)
-      --            then P.makeSelfContained (sfdWO sfd) res
-      --            else return res
-      --         UTF8.writeFile fp out
-
-
--- discoverAndRunSync :: Sync -> IO Sync
--- discoverAndRunSync = runSync <=< discoverSync
-
--- initSync :: Either () (String, DiscoverMode) -> Sync
--- initSync = \case
---     -- TODO: support
---     Left ()  -> Sync M.empty M.empty Nothing Nothing
---     Right dm -> Sync M.empty M.empty Nothing (Just dm)
-
--- initAndDiscoverSync
---     :: Either () (String, DiscoverMode)
---     -> IO Sync
--- initAndDiscoverSync = discoverSync . initSync
-
--- initAndRunSync
---     :: Either () (String, DiscoverMode)
---     -> IO Sync
--- initAndRunSync = discoverAndRunSync . initSync
+hashFile :: FilePath -> IO B.ByteString
+hashFile fp = B16.encode . B.fromStrict . hashlazy <$> B.readFile fp
 
 mapToQueue
     :: (Ord k, Ord p)
@@ -310,3 +248,7 @@ readPandoc ft ro fp = case formatReader ft of
     handleIncludes = case ft of
       FLaTeX -> P.handleIncludes
       _      -> return . Right
+
+snapUpdated :: Snapshot -> Snapshot -> Bool
+snapUpdated s0 s1 = (s0 ^. snapHash /= s1 ^. snapHash)
+                 && ((s1 ^. snapTime) `diffUTCTime` (s0 ^. snapTime)) > 0.1

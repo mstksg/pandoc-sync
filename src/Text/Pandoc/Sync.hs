@@ -55,10 +55,10 @@ instance Hashable DiscoverMode where
       DMParallelTree mp -> s `hashWithSalt` (1 :: Int)
                              `hashWithSalt` M.toList mp
 
-instance FromJSON DiscoverMode where
-    parseJSON v = case v of
-      String "same-dir" -> pure DMSameDir
-      _                 -> DMParallelTree <$> parseJSON v
+-- instance FromJSON DiscoverMode where
+--     parseJSON v = case v of
+--       String "same-dir" -> pure DMSameDir
+--       _                 -> DMParallelTree <$> parseJSON v
 
 
 data FileDiscover = FD { _fdBaseDir      :: FilePath
@@ -75,7 +75,7 @@ data SyncConfig = SC { _scDiscoverMode :: DiscoverMode
                      , _scRoot         :: FilePath
                      , _scCache        :: FilePath
                      }
-  deriving Generic
+  deriving (Show, Generic)
 
 makeLenses ''SyncConfig
 
@@ -88,11 +88,20 @@ instance Hashable SyncConfig where
 
     
 instance FromJSON SyncConfig where
-    parseJSON = withObject "SyncConfig" $ \v ->
-      SC <$> (v .: "discover-mode" <|> pure DMSameDir                  )
-         <*> (v .: "formats"       <|> fail "List of formats required.")
-         <*> (v .: "root"          <|> pure ""                         )
-         <*> (v .: "cache"         <|> pure ".pandoc-sync-cache"       )
+    parseJSON = withObject "SyncConfig" $ \v -> do
+      dm <- do
+        dmTok <- v .:? "discover-mode"
+        case dmTok :: Maybe String of
+          Nothing         -> pure DMSameDir
+          Just "same-dir" -> pure DMSameDir
+          Just "parallel" -> DMParallelTree <$> v .: "format-tree"
+      fts   <- v .: "formats"
+      rt    <- v .:? "root"
+      cache <- v .:? "cache"
+      return $ SC dm
+                  fts
+                  (fromMaybe "" rt)
+                  (fromMaybe ".pandoc-sync-cache" cache)
 
 data Sync = Sync { _syncFiles    :: M.Map FileDiscover SyncFile
                  , _syncConfHash :: Int

@@ -60,6 +60,7 @@ import qualified Data.IntMap                  as IM
 import qualified Data.Map                     as M
 import qualified Data.Singletons.Decide       as Si
 import qualified Text.Megaparsec              as MP
+import qualified Text.Megaparsec.Lexer        as MPL
 import qualified Text.Megaparsec.Text         as MP
 import qualified Text.Pandoc                  as P
 
@@ -372,13 +373,13 @@ instance Hashable WriterOptions where
 instance FromJSON ReaderOptions
 instance FromJSON WriterOptions where
     parseJSON = withObject "WriterOptions" $ \v ->
-      WO <$> (v .: "standalone" <|> pure True)
-         <*> v .: "template-path"
-         <*> v .: "data-dir"
+      WO <$> (fromMaybe True    <$> v .:? "standalone")
+         <*> (v .:? "template-path")
+         <*> (v .:? "data-dir")
          <*> pure P.PlainMath
-         <*> (v .: "variables" <|> pure M.empty)
-         <*> (v .: "tab-stop" <|> pure 4)
-         <*> (v .: "toc"      <|> v .: "table-of-contents" <|> pure False)
+         <*> (fromMaybe M.empty <$> v .:? "variables")
+         <*> (fromMaybe 4 <$> v .: "tab-stop")
+         <*> (fromMaybe False <$> (v .: "toc" <|> v .: "table-of-contents"))
 
 data FormatOptions :: Bool -> Bool -> Type where
     FormatOptions :: { _foFormat     :: Format r w
@@ -414,11 +415,23 @@ instance Hashable (Writer FormatOptions) where
       Writer fo -> s `hashWithSalt` fo
 
 instance FromJSON (Writer FormatOptions) where
-    parseJSON = withObject "Writer FormatOptions" $ \v -> do
-      Writer (ft :: Format r 'True) <- v .: "format"
-      fo <- FormatOptions ft <$> (v .: "opts" <|> pure def)
-                             <*> (v .: "opts" <|> pure def)
-      return $ Writer fo
+    parseJSON v = withOpts v <|> noOpts v
+      where
+        withOpts = withObject "Writer FormatOptions" $ \v' -> do
+          Writer ft <- v' .: "format"
+          ro <- v' .:? "opts"
+          wo <- v' .:? "opts"
+          return . Writer $
+            FormatOptions ft (fromMaybe def ro) (fromMaybe def wo)
+        noOpts t = parseJSON t <&> \case
+          Writer ft -> Writer (FormatOptions ft def def)
+      
+
+instance Show (Writer FormatOptions) where
+    showsPrec d (Writer fo) = showParen (d > app_prec) $
+        showString "Writer " . showsPrec (app_prec + 1) fo
+      where
+        app_prec = 10
 
 fromReaderOptions :: ReaderOptions -> P.ReaderOptions
 fromReaderOptions _ = def
@@ -644,43 +657,37 @@ parseSomeFormat = do
     baseFormat <- asum [ MP.try singleWord
                        , someFormat . FMarkdown <$> MP.try markdown
                        ]
-    modFlag <- asum [ MP.try $ someFormat . FMkReadOnly  <$ MP.string "readonly"
-                    , MP.try $ someFormat . FMkReadOnly  <$ MP.string "ro"
-                    , MP.try $ someFormat . FMkReadOnly  <$ MP.string "readOnly"
-                    , MP.try $ someFormat . FMkReadOnly  <$ MP.string "ReadOnly"
-                    , MP.try $ someFormat . FMkWriteOnly <$ MP.string "writeonly"
-                    , MP.try $ someFormat . FMkWriteOnly <$ MP.string "wo"
-                    , MP.try $ someFormat . FMkWriteOnly <$ MP.string "writeOnly"
-                    , MP.try $ someFormat . FMkWriteOnly <$ MP.string "WriteOnly"
+    modFlag <- asum [ MP.try $ someFormat . FMkReadOnly  <$ symbol "readonly"
+                    , MP.try $ someFormat . FMkReadOnly  <$ symbol "ro"
+                    , MP.try $ someFormat . FMkWriteOnly <$ symbol "writeonly"
+                    , MP.try $ someFormat . FMkWriteOnly <$ symbol "wo"
                     , pure $ someFormat
                     ]
     return $ case baseFormat of
        SomeFormat STrue STrue ft -> modFlag ft
        SomeFormat sr    sw    ft -> SomeFormat sr sw ft
   where
+    symbol = MPL.symbol' MP.space
     markdown :: MP.Parser MarkdownType
     markdown = do
-      _ <- MP.try (MP.string "markdown") <|> MP.string "md"
-      MP.skipSome MP.spaceChar
-      asum [ MP.try $ MDStrict <$ MP.string "strict"
-           , MP.try $ MDPHP    <$ MP.string "phpextra"
-           , MP.try $ MDPHP    <$ MP.string "php"
-           , MP.try $ MDGithub <$ MP.string "github"
-           , MP.try $ MDGithub <$ MP.string "gh"
-           , MP.try $ MDMulti  <$ MP.string "mmd"
-           , MP.try $ MDMulti  <$ MP.string "multi"
-           , MP.try $ MDMulti  <$ MP.string "multimarkdown"
-           , MP.try $ MDCommon <$ MP.string "common"
-           , MP.try $ MDCommon <$ MP.string "commonmark"
+      _ <- MP.try (symbol "markdown") <|> symbol "md"
+      asum [ MP.try $ MDStrict <$ symbol "strict"
+           , MP.try $ MDPHP    <$ symbol "phpextra"
+           , MP.try $ MDPHP    <$ symbol "php"
+           , MP.try $ MDGithub <$ symbol "github"
+           , MP.try $ MDGithub <$ symbol "gh"
+           , MP.try $ MDMulti  <$ symbol "mmd"
+           , MP.try $ MDMulti  <$ symbol "multi"
+           , MP.try $ MDMulti  <$ symbol "multimarkdown"
+           , MP.try $ MDCommon <$ symbol "common"
+           , MP.try $ MDCommon <$ symbol "commonmark"
            , pure MDPandoc
            ]
     singleWord :: MP.Parser SomeFormat
-    singleWord = asum . flip fmap singleWords . uncurry $ \s ft -> MP.try $ do
-      _ <- MP.string s
-      MP.skipSome MP.spaceChar
-      return ft
-    singleWords :: [(String, SomeFormat)]
-    singleWords =
+    singleWord = asum . flip M.mapWithKey singleWords $ \s ft -> MP.try $
+      ft <$ symbol s
+    singleWords :: M.Map String SomeFormat
+    singleWords = M.fromList
       [ ("native"      , someFormat FNative                )
       , ("haskell"     , someFormat FNative                )
       , ("json"        , someFormat FJSON                  )

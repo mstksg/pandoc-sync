@@ -23,7 +23,6 @@ module Text.Pandoc.Sync (
   ) where
 
 -- import           Control.Applicative
--- import qualified Data.Text           as T
 import           Control.Exception
 import           Control.Lens
 import           Control.Monad
@@ -42,9 +41,11 @@ import           System.Directory
 import           System.FilePath
 import           System.IO.Error
 import           Text.Pandoc.Sync.File  as PS
+import           Text.Printf
 import qualified Data.Binary            as Bi
 import qualified Data.Map               as M
 import qualified Data.Set               as S
+import qualified Data.Text              as T
 
 type FileExt = String
 
@@ -128,12 +129,12 @@ initSync sc = do
     res <- flip Sync (hash sc) <$> case sc ^. scDiscoverMode of
       DMSameDir          ->
         fillSameDir . M.mapWithKey mkSF
-        -- . M.mapWithKey mkSF
           <$> discoverAll (sc ^. scFormats) (sc ^. scRoot)
       DMParallelTree rts ->
         M.mapWithKey (fillParallel rts) . join traceShow . M.unionsWith mergeSF
           <$> traverse (uncurry mkParallel) (M.toList rts)
-    liftIO $ print res
+    forOf_ (syncFiles . to M.toList . traverse) res . uncurry $ \fd sf -> do
+      logDebugN ""
     return res
   where
     fillSameDir
@@ -168,10 +169,10 @@ initSync sc = do
                     . M.mapWithKey mkSF
                     . over (mapKeys . fdBaseDir) (fromJust' (stripPrefix fullRt))
                     <$> discoverAll (M.singleton ex wf) fullRt
-               liftIO $ do
-                 putStrLn "Making parallel:"
-                 putStrLn fullRt
-                 print res
+               -- liftIO $ do
+               --   putStrLn "Making parallel:"
+               --   putStrLn fullRt
+               --   print res
                return res
     fillParallel :: M.Map FilePath FileExt -> FileDiscover -> SyncFile -> SyncFile
     fillParallel rts fd = over sfSourcesSinks (`M.union` filled)
@@ -240,9 +241,8 @@ loadSync sc = do
       Right s | s ^. syncConfHash == hash sc ->
         discoverSync sc s
               | otherwise                    -> do
-        liftIO $ do
-          putStrLn "Configuration changed"
-          removeFile (sc ^. scCache)
+        logInfoN "Configuration changed"
+        liftIO $ removeFile (sc ^. scCache)
         initSync sc
       Left ()                                ->
         initSync sc
@@ -268,12 +268,15 @@ discoverAll wfs rt = do
       when isFile $ error "There's a file there, what gives?"
       createDirectoryIfMissing True rt
     res <- go rt
-    liftIO $ putStrLn $ "Found: " ++ show res
+    forM_ (M.toList res) . uncurry $ \fd exs ->
+      logDebugN . T.pack $ printf "Found file %s with extensions %s"
+        (fd ^. fdBaseDir </> fd ^. fdFileName)
+        (show (S.toList exs))
     return res
   where
     go :: FilePath -> m (M.Map FileDiscover (S.Set FileExt))
     go fp0 = do
-        liftIO $ putStrLn $ "Searching directory " ++ fp0
+        logDebugN . T.pack $ printf "Searching directory %s" fp0
         fmap (M.unionsWith (<>)) . mapM process =<< liftIO (listDirectory fp0)
       where
         process :: FilePath -> m (M.Map FileDiscover (S.Set FileExt))

@@ -29,7 +29,7 @@ import           Text.Pandoc.Sync
 
 main :: IO ()
 main = do
-    sce <- decodeFileEither @SyncConfig "pandoc-sync.yaml"
+    sce <- decodeFileEither "pandoc-sync.yaml"
     case sce of
       Left  e  -> print e
       Right sc -> do

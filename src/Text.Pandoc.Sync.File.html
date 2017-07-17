@@ -57,7 +57,7 @@
 </span><a name="line-57"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Shared</span><span>           </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
 </span><a name="line-58"></a><span>
 </span><a name="line-59"></a><span class="hs-keyword">data</span><span> </span><a name="SyncFileData"><a href="Text.Pandoc.Sync.File.html#SyncFileData"><span class="hs-identifier">SyncFileData</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Bool</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">Type</span><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-60"></a><span>    </span><a name="SyncFileData"><a href="Text.Pandoc.Sync.File.html#SyncFileData"><span class="hs-identifier">SyncFileData</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">{</span><span> </span><a name="_sfdFormat"><a href="Text.Pandoc.Sync.File.html#_sfdFormat"><span class="hs-identifier">_sfdFormat</span></a></a><span>     </span><span class="hs-glyph">::</span><span> </span><a href="Text.Pandoc.Sync.Format.html#Format"><span class="hs-identifier hs-type">Format</span></a><span> </span><a href="#local-6989586621679344449"><span class="hs-identifier hs-type">r</span></a><span> </span><span class="hs-char">'True
+</span><a name="line-60"></a><span>    </span><a name="SyncFileData"><a href="Text.Pandoc.Sync.File.html#SyncFileData"><span class="hs-identifier">SyncFileData</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">{</span><span> </span><a name="_sfdFormat"><a href="Text.Pandoc.Sync.File.html#_sfdFormat"><span class="hs-identifier">_sfdFormat</span></a></a><span>     </span><span class="hs-glyph">::</span><span> </span><a href="Text.Pandoc.Sync.Format.html#Format"><span class="hs-identifier hs-type">Format</span></a><span> </span><a href="#local-6989586621679439095"><span class="hs-identifier hs-type">r</span></a><span> </span><span class="hs-char">'True
                     , _sfdReaderOpts :: HasIf r ReaderOptions
                     , _sfdWriterOpts :: WriterOptions
                     , _sfdLastSync   :: Maybe UTCTime
@@ -144,6 +144,7 @@ sfSourcesSinks f s0 = f bigMap &lt;&amp;&gt; \bm -&gt;
 runSyncFile :: SyncFile -&gt; IO SyncFile
 runSyncFile s0 = do
     syncTime &lt;- getCurrentTime
+    -- putStrLn $ &quot;Last mod time: &quot; ++ show (sfd ^. sfdLastSync)
     (updatesE, updates) &lt;- fmap (M.mapEither id . catMaybes)
              . ifor (s0 ^. sfSources) $ \fp sfd -&gt; runMaybeT $ do
       modTime &lt;- MaybeT
@@ -154,7 +155,12 @@ runSyncFile s0 = do
     -- s &lt;- tryJust (guard . isDoesNotExistError) $ Bi.decodeFile (sc ^. scCache)
       case sfd ^. sfdLastSync of
         Nothing  -&gt; return ()
-        Just mt0 -&gt; guard $ mt0 &lt; modTime
+        Just mt0 -&gt; do
+          guard $ mt0 `utclt` modTime
+      case s0 ^? sfLastUpdate . _Just . _1 of
+        Nothing -&gt; return ()
+        Just s0mt -&gt; guard $ s0mt `utclt` modTime
+        -- s0 &amp; sfLastUpdate                  .~ Just (syncTime, pd, mb)
       liftIO $ printf &quot;Found updated source: %s (%s -&gt; %s)\n&quot;
                       fp
                       (show (sfd ^. sfdLastSync))
@@ -166,7 +172,8 @@ runSyncFile s0 = do
         Right (newPd, mb) -&gt; case s0 ^? sfLastUpdate . _Just . _2 of
           Just oldPd | oldPd == newPd
                     -&gt; Nothing
-          _         -&gt; Just $ Right (sfd ^. sfdLastSync, (newPd, mb))
+          -- _         -&gt; Just $ Right (sfd ^. sfdLastSync, (newPd, mb))
+          _         -&gt; Just $ Right (modTime, (newPd, mb))
         Left e      -&gt; Just $ Left e
     let sortedUpdates = mapToQueue id updates
     case PS.minView sortedUpdates of
@@ -180,6 +187,8 @@ runSyncFile s0 = do
               updateSource syncTime False pd mb fp' sfd
       Just (fp, _, (pd, mb), laterUpdates) -&gt; do
         putStrLn &quot;Updates found!&quot;
+        putStrLn $ &quot;Last update was &quot; ++ show (s0 ^? sfLastUpdate . _Just . _1)
+        putStrLn $ &quot;Using update from: &quot; ++ fp
         itraverse_ backupError updatesE
         itraverse_ backupLater $ queueToMap (flip const) laterUpdates
         s0 &amp; sfLastUpdate                  .~ Just (syncTime, pd, mb)
@@ -187,10 +196,12 @@ runSyncFile s0 = do
                sfd' &lt;- updateSource syncTime (fp == fp') pd mb fp' sfd
                return $ s :=&gt; sfd'
   where
+    utclt :: UTCTime -&gt; UTCTime -&gt; Bool
+    utclt t1 t2 = (t2 `diffUTCTime` t1) &gt; 0.5       -- threshold for equality (seconds)
     backupError :: FilePath -&gt; P.PandocError -&gt; IO ()
-    backupError _ _ = return ()
+    backupError fp _ = putStrLn $ &quot;Error reading &quot; ++ fp ++ &quot; !&quot;
     backupLater :: FilePath -&gt; (P.Pandoc, P.MediaBag) -&gt; IO ()
-    backupLater _ _ = return ()
+    backupLater fp _ = putStrLn $ &quot;Update conflit! &quot; ++ fp
     updateSource
         :: SingI r
         =&gt; UTCTime
@@ -202,7 +213,8 @@ runSyncFile s0 = do
         -&gt; IO (SyncFileData r)
     updateSource st skipWrite pd mb fp sfd = do
       createDirectoryIfMissing True (takeDirectory fp)
-      unless skipWrite $
+      unless skipWrite $ do
+        putStrLn $ &quot;Updating &quot; ++ fp
         writePandoc (sfd ^. sfdFormat) pd mb (sfd ^. sfdWriterOpts) fp
       return $ sfd &amp; sfdLastSync .~ Just st
 

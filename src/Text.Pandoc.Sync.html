@@ -50,15 +50,15 @@
 </span><a name="line-50"></a><span>
 </span><a name="line-51"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">Bi</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Binary</span><span> </span><a href="Text.Pandoc.Sync.html#DiscoverMode"><span class="hs-identifier hs-type">DiscoverMode</span></a><span>
 </span><a name="line-52"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">Hashable</span><span> </span><a href="Text.Pandoc.Sync.html#DiscoverMode"><span class="hs-identifier hs-type">DiscoverMode</span></a><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-53"></a><span>    </span><a name="local-8214565720323808442"><span class="hs-identifier">hashWithSalt</span></a><span> </span><a name="local-6989586621679442310"><a href="#local-6989586621679442310"><span class="hs-identifier">s</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-keyword">case</span><span>
-</span><a name="line-54"></a><span>      </span><a href="Text.Pandoc.Sync.html#DMSameDir"><span class="hs-identifier hs-var">DMSameDir</span></a><span>         </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679442310"><span class="hs-identifier hs-var">s</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-special">(</span><span class="hs-number">0</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Int</span><span class="hs-special">)</span><span>
-</span><a name="line-55"></a><span>      </span><a href="Text.Pandoc.Sync.html#DMParallelTree"><span class="hs-identifier hs-var">DMParallelTree</span></a><span> </span><a name="local-6989586621679442311"><a href="#local-6989586621679442311"><span class="hs-identifier">mp</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679442310"><span class="hs-identifier hs-var">s</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-special">(</span><span class="hs-number">1</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Int</span><span class="hs-special">)</span><span>
-</span><a name="line-56"></a><span>                             </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">toList</span><span> </span><a href="#local-6989586621679442311"><span class="hs-identifier hs-var">mp</span></a><span>
+</span><a name="line-53"></a><span>    </span><a name="local-8214565720323808442"><span class="hs-identifier">hashWithSalt</span></a><span> </span><a name="local-6989586621679537885"><a href="#local-6989586621679537885"><span class="hs-identifier">s</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-keyword">case</span><span>
+</span><a name="line-54"></a><span>      </span><a href="Text.Pandoc.Sync.html#DMSameDir"><span class="hs-identifier hs-var">DMSameDir</span></a><span>         </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679537885"><span class="hs-identifier hs-var">s</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-special">(</span><span class="hs-number">0</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Int</span><span class="hs-special">)</span><span>
+</span><a name="line-55"></a><span>      </span><a href="Text.Pandoc.Sync.html#DMParallelTree"><span class="hs-identifier hs-var">DMParallelTree</span></a><span> </span><a name="local-6989586621679537886"><a href="#local-6989586621679537886"><span class="hs-identifier">mp</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679537885"><span class="hs-identifier hs-var">s</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-special">(</span><span class="hs-number">1</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Int</span><span class="hs-special">)</span><span>
+</span><a name="line-56"></a><span>                             </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">toList</span><span> </span><a href="#local-6989586621679537886"><span class="hs-identifier hs-var">mp</span></a><span>
 </span><a name="line-57"></a><span>
-</span><a name="line-58"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">FromJSON</span><span> </span><a href="Text.Pandoc.Sync.html#DiscoverMode"><span class="hs-identifier hs-type">DiscoverMode</span></a><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-59"></a><span>    </span><a name="local-8214565720323789012"><span class="hs-identifier">parseJSON</span></a><span> </span><a name="local-6989586621679442309"><a href="#local-6989586621679442309"><span class="hs-identifier">v</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><a href="#local-6989586621679442309"><span class="hs-identifier hs-var">v</span></a><span> </span><span class="hs-keyword">of</span><span>
-</span><a name="line-60"></a><span>      </span><span class="hs-identifier hs-var">String</span><span> </span><span class="hs-string">&quot;same-dir&quot;</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-var">pure</span><span> </span><a href="Text.Pandoc.Sync.html#DMSameDir"><span class="hs-identifier hs-var">DMSameDir</span></a><span>
-</span><a name="line-61"></a><span>      </span><span class="hs-identifier">_</span><span>                 </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.html#DMParallelTree"><span class="hs-identifier hs-var">DMParallelTree</span></a><span> </span><span class="hs-operator hs-var">&lt;$&gt;</span><span> </span><span class="hs-identifier hs-var">parseJSON</span><span> </span><a href="#local-6989586621679442309"><span class="hs-identifier hs-var">v</span></a><span>
+</span><a name="line-58"></a><span class="hs-comment">-- instance FromJSON DiscoverMode where</span><span>
+</span><a name="line-59"></a><span class="hs-comment">--     parseJSON v = case v of</span><span>
+</span><a name="line-60"></a><span class="hs-comment">--       String &quot;same-dir&quot; -&gt; pure DMSameDir</span><span>
+</span><a name="line-61"></a><span class="hs-comment">--       _                 -&gt; DMParallelTree &lt;$&gt; parseJSON v</span><span>
 </span><a name="line-62"></a><span>
 </span><a name="line-63"></a><span>
 </span><a name="line-64"></a><span class="hs-keyword">data</span><span> </span><a name="FileDiscover"><a href="Text.Pandoc.Sync.html#FileDiscover"><span class="hs-identifier">FileDiscover</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="FD"><a href="Text.Pandoc.Sync.html#FD"><span class="hs-identifier">FD</span></a></a><span> </span><span class="hs-special">{</span><span> </span><a name="_fdBaseDir"><a href="Text.Pandoc.Sync.html#_fdBaseDir"><span class="hs-identifier">_fdBaseDir</span></a></a><span>      </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">FilePath</span><span>
@@ -75,7 +75,7 @@ data SyncConfig = SC { _scDiscoverMode :: DiscoverMode
                      , _scRoot         :: FilePath
                      , _scCache        :: FilePath
                      }
-  deriving Generic
+  deriving (Show, Generic)
 
 makeLenses ''SyncConfig
 
@@ -88,11 +88,20 @@ instance Hashable SyncConfig where
 
     
 instance FromJSON SyncConfig where
-    parseJSON = withObject &quot;SyncConfig&quot; $ \v -&gt;
-      SC &lt;$&gt; (v .: &quot;discover-mode&quot; &lt;|&gt; pure DMSameDir                  )
-         &lt;*&gt; (v .: &quot;formats&quot;       &lt;|&gt; fail &quot;List of formats required.&quot;)
-         &lt;*&gt; (v .: &quot;root&quot;          &lt;|&gt; pure &quot;&quot;                         )
-         &lt;*&gt; (v .: &quot;cache&quot;         &lt;|&gt; pure &quot;.pandoc-sync-cache&quot;       )
+    parseJSON = withObject &quot;SyncConfig&quot; $ \v -&gt; do
+      dm &lt;- do
+        dmTok &lt;- v .:? &quot;discover-mode&quot;
+        case dmTok :: Maybe String of
+          Nothing         -&gt; pure DMSameDir
+          Just &quot;same-dir&quot; -&gt; pure DMSameDir
+          Just &quot;parallel&quot; -&gt; DMParallelTree &lt;$&gt; v .: &quot;format-tree&quot;
+      fts   &lt;- v .: &quot;formats&quot;
+      rt    &lt;- v .:? &quot;root&quot;
+      cache &lt;- v .:? &quot;cache&quot;
+      return $ SC dm
+                  fts
+                  (fromMaybe &quot;&quot; rt)
+                  (fromMaybe &quot;.pandoc-sync-cache&quot; cache)
 
 data Sync = Sync { _syncFiles    :: M.Map FileDiscover SyncFile
                  , _syncConfHash :: Int

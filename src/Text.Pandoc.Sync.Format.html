@@ -752,7 +752,7 @@ unparseFormat :: Format r w -&gt; T.Text
 unparseFormat = \case
     FNative       -&gt; &quot;native&quot;
     FJSON         -&gt; &quot;json&quot;
-    FMarkdown mt t -&gt; (if t then id else (&lt;&gt; &quot; lhs&quot;)) $ case mt of
+    FMarkdown mt t -&gt; (if t then (&lt;&gt; &quot; lhs&quot;) else id) $ case mt of
       MDPandoc -&gt; &quot;markdown&quot;
       MDStrict -&gt; &quot;markdown strict&quot;
       MDPHP    -&gt; &quot;markdown phpextra&quot;

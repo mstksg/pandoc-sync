@@ -57,10 +57,10 @@
 </span><a name="line-57"></a><span>
 </span><a name="line-58"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">Bi</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Binary</span><span> </span><a href="Text.Pandoc.Sync.html#DiscoverMode"><span class="hs-identifier hs-type">DiscoverMode</span></a><span>
 </span><a name="line-59"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">Hashable</span><span> </span><a href="Text.Pandoc.Sync.html#DiscoverMode"><span class="hs-identifier hs-type">DiscoverMode</span></a><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-60"></a><span>    </span><a name="local-8214565720323808476"><span class="hs-identifier">hashWithSalt</span></a><span> </span><a name="local-6989586621679654868"><a href="#local-6989586621679654868"><span class="hs-identifier">s</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-keyword">case</span><span>
-</span><a name="line-61"></a><span>      </span><a href="Text.Pandoc.Sync.html#DMSameDir"><span class="hs-identifier hs-var">DMSameDir</span></a><span>         </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679654868"><span class="hs-identifier hs-var">s</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-special">(</span><span class="hs-number">0</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Int</span><span class="hs-special">)</span><span>
-</span><a name="line-62"></a><span>      </span><a href="Text.Pandoc.Sync.html#DMParallelTree"><span class="hs-identifier hs-var">DMParallelTree</span></a><span> </span><a name="local-6989586621679654869"><a href="#local-6989586621679654869"><span class="hs-identifier">mp</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679654868"><span class="hs-identifier hs-var">s</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-special">(</span><span class="hs-number">1</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Int</span><span class="hs-special">)</span><span>
-</span><a name="line-63"></a><span>                             </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">toList</span><span> </span><a href="#local-6989586621679654869"><span class="hs-identifier hs-var">mp</span></a><span>
+</span><a name="line-60"></a><span>    </span><a name="local-8214565720323808476"><span class="hs-identifier">hashWithSalt</span></a><span> </span><a name="local-6989586621679656102"><a href="#local-6989586621679656102"><span class="hs-identifier">s</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-keyword">case</span><span>
+</span><a name="line-61"></a><span>      </span><a href="Text.Pandoc.Sync.html#DMSameDir"><span class="hs-identifier hs-var">DMSameDir</span></a><span>         </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679656102"><span class="hs-identifier hs-var">s</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-special">(</span><span class="hs-number">0</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Int</span><span class="hs-special">)</span><span>
+</span><a name="line-62"></a><span>      </span><a href="Text.Pandoc.Sync.html#DMParallelTree"><span class="hs-identifier hs-var">DMParallelTree</span></a><span> </span><a name="local-6989586621679656103"><a href="#local-6989586621679656103"><span class="hs-identifier">mp</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679656102"><span class="hs-identifier hs-var">s</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-special">(</span><span class="hs-number">1</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Int</span><span class="hs-special">)</span><span>
+</span><a name="line-63"></a><span>                             </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">toList</span><span> </span><a href="#local-6989586621679656103"><span class="hs-identifier hs-var">mp</span></a><span>
 </span><a name="line-64"></a><span>
 </span><a name="line-65"></a><span class="hs-keyword">data</span><span> </span><a name="FileDiscover"><a href="Text.Pandoc.Sync.html#FileDiscover"><span class="hs-identifier">FileDiscover</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="FD"><a href="Text.Pandoc.Sync.html#FD"><span class="hs-identifier">FD</span></a></a><span> </span><span class="hs-special">{</span><span> </span><a name="_fdBaseDir"><a href="Text.Pandoc.Sync.html#_fdBaseDir"><span class="hs-identifier">_fdBaseDir</span></a></a><span>      </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">FilePath</span><span>
 </span><a name="line-66"></a><span>                       </span><span class="hs-special">,</span><span> </span><a name="_fdFileName"><a href="Text.Pandoc.Sync.html#_fdFileName"><span class="hs-identifier">_fdFileName</span></a></a><span>     </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">String</span><span>
@@ -192,7 +192,7 @@ initSync sc = do
         let fullRt = sc ^. scRoot &lt;/&gt; rt
         in  do res &lt;- over (traverse . sfSourcesSinks . mapKeys) (fullRt &lt;/&gt;)
                     . M.mapWithKey mkSF
-                    . over (mapKeys . fdBaseDir) (fromJust' (stripPrefix fullRt))
+                    . over (mapKeys . fdBaseDir) (fromJust . stripPrefix fullRt)
                     &lt;$&gt; discoverAll (M.singleton ex wf) fullRt
                return res
     fillParallel :: M.Map FilePath FileExt -&gt; FileDiscover -&gt; SyncFile -&gt; SyncFile
@@ -218,9 +218,11 @@ initSync sc = do
     mkSF fd exs = emptySyncFile &amp;
         sfSourcesSinks .~ M.mapKeys mkFileName extMap
       where
-        extMap = M.intersectionWith (const go)
-                                    (M.fromSet (const ()) exs)
-                                    (sc ^. scFormats)
+        extMap :: M.Map FileExt (DSum Sing SyncFileData)
+        extMap = flip M.fromSet exs $ \ex -&gt;
+          let d = case inferWriter ex of
+                    Writer ft -&gt; Writer $ FormatOptions ft def def
+          in  go $ M.findWithDefault d ex (sc ^. scFormats)
         mkFileName :: FileExt -&gt; FilePath
         mkFileName fe = (fd ^. fdBaseDir) &lt;/&gt; (fd ^. fdFileName) -&lt;.&gt; fe
         go :: Writer FormatOptions -&gt; DSum Sing SyncFileData
@@ -234,10 +236,11 @@ initSync sc = do
     mergeSF s1 s2 = s1 &amp; sfSourcesSinks %~ (`M.union` (s2 ^. sfSourcesSinks))
 
 
-fromJust' :: Show a =&gt; (a -&gt; Maybe b) -&gt; a -&gt; b
-fromJust' f x = case f x of
-                  Nothing -&gt; error $ &quot;fromJust called from applying &quot; ++ show x
-                  Just y  -&gt; y
+-- fromJust' :: Show a =&gt; (a -&gt; Maybe b) -&gt; a -&gt; b
+-- fromJust' f x = fromMaybe (error $ printf &quot;fromJust call&quot;) $ f x
+--   where
+--                   Nothing -&gt; error $ &quot;fromJust called from applying &quot; ++ show x
+--                   Just y  -&gt; y
 
 addSync :: Sync -&gt; Sync -&gt; Sync
 addSync s0 s1 = s0 &amp; syncFiles %~ M.unionWith go (s1 ^. syncFiles)
@@ -248,14 +251,11 @@ addSync s0 s1 = s0 &amp; syncFiles %~ M.unionWith go (s1 ^. syncFiles)
 discoverSync :: SyncConfig -&gt; Sync -&gt; IO Sync
 discoverSync sc s0 = addSync s0 &lt;$&gt; initSync sc
 
-runSync :: ConflictMode -&gt; Sync -&gt; IO Sync
-runSync cm = itraverseOf (syncFiles . itraversed) $ \fd sf -&gt; do
+runSync :: Bool -&gt; ConflictMode -&gt; Sync -&gt; IO Sync
+runSync dry cm = itraverseOf (syncFiles . itraversed) $ \fd sf -&gt; do
     debugM &quot;pandoc-sync&quot; $ printf &quot;Syncing file %s&quot;
       (fd ^. fdBaseDir &lt;/&gt; fd ^. fdFileName)
-    runSyncFile cm sf
-
-    -- debugM
-    -- runSyncFile
+    runSyncFile dry cm sf
 
 loadSync :: SyncConfig -&gt; IO Sync
 loadSync sc = do

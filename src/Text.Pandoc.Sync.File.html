@@ -146,8 +146,8 @@ data ConflictMode = CMInteractive
                   | CMOldest
                   | CMIgnore
 
-runSyncFile :: ConflictMode -&gt; SyncFile -&gt; IO SyncFile
-runSyncFile cm s0 = do
+runSyncFile :: Bool -&gt; ConflictMode -&gt; SyncFile -&gt; IO SyncFile
+runSyncFile dry cm s0 = do
     syncTime &lt;- getCurrentTime
     (updatesE, updates) &lt;- fmap (M.mapEither id . catMaybes)
              . ifor (s0 ^. sfSources) $ \fp sfd -&gt; runMaybeT $ do
@@ -239,10 +239,10 @@ runSyncFile cm s0 = do
     updateSource st skipWrite pd mb fp sfd = do
       createDirectoryIfMissing True (takeDirectory fp)
       unless skipWrite $ do
-        noticeM &quot;pandoc-sync&quot; $ printf &quot;Writing to %s&quot; fp
-        writePandoc (sfd ^. sfdFormat) pd mb (sfd ^. sfdWriterOpts) fp
+        writePandoc dry (sfd ^. sfdFormat) pd mb (sfd ^. sfdWriterOpts) fp
       hsh &lt;- hashFile fp
-      return $ sfd &amp; sfdLastSync .~ Just (Snap st hsh)
+      return . (if dry then id else set sfdLastSync (Just (Snap st hsh))) $
+        sfd
 
 queryUser :: forall a. (a -&gt; String) -&gt; String -&gt; S.Set a -&gt; IO (Maybe a)
 queryUser f msg s | S.null s = return Nothing

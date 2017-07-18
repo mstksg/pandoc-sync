@@ -32,34 +32,36 @@
 </span><a name="line-32"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">IO</span><span class="hs-operator">.</span><span class="hs-identifier">Error</span><span>
 </span><a name="line-33"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">Log</span><span class="hs-operator">.</span><span class="hs-identifier">Logger</span><span>
 </span><a name="line-34"></a><span class="hs-keyword">import</span><span>           </span><a href="Text.Pandoc.Sync.Format.html"><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Sync</span><span class="hs-operator">.</span><span class="hs-identifier">Format</span></a><span>
-</span><a name="line-35"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">ByteString</span><span class="hs-operator">.</span><span class="hs-identifier">Lazy</span><span>         </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">B</span><span>
-</span><a name="line-36"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Map</span><span>                     </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">M</span><span>
-</span><a name="line-37"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Lazy</span><span>               </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">TL</span><span>
-</span><a name="line-38"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Lazy</span><span class="hs-operator">.</span><span class="hs-identifier">Encoding</span><span>      </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">TL</span><span>
-</span><a name="line-39"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
-</span><a name="line-40"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><a href="Text.Pandoc.Lens.App.html"><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Lens</span><span class="hs-operator">.</span><span class="hs-identifier">App</span></a><span>         </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
-</span><a name="line-41"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">MediaBag</span><span>         </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
-</span><a name="line-42"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">PDF</span><span>              </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
-</span><a name="line-43"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">SelfContained</span><span>    </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
-</span><a name="line-44"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Shared</span><span>           </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
-</span><a name="line-45"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">UTF8</span><span>             </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">UTF8</span><span>
-</span><a name="line-46"></a><span>
-</span><a name="line-47"></a><span class="hs-identifier">writePandoc</span><span>
-</span><a name="line-48"></a><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">SingI</span><span> </span><a href="#local-6989586621679506329"><span class="hs-identifier hs-type">r</span></a><span>
-</span><a name="line-49"></a><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><a href="Text.Pandoc.Sync.Format.html#Format"><span class="hs-identifier hs-type">Format</span></a><span> </span><a href="#local-6989586621679506329"><span class="hs-identifier hs-type">r</span></a><span> </span><span class="hs-char">'True
+</span><a name="line-35"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Printf</span><span>
+</span><a name="line-36"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">ByteString</span><span class="hs-operator">.</span><span class="hs-identifier">Lazy</span><span>         </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">B</span><span>
+</span><a name="line-37"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Map</span><span>                     </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">M</span><span>
+</span><a name="line-38"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Lazy</span><span>               </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">TL</span><span>
+</span><a name="line-39"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Lazy</span><span class="hs-operator">.</span><span class="hs-identifier">Encoding</span><span>      </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">TL</span><span>
+</span><a name="line-40"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-41"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><a href="Text.Pandoc.Lens.App.html"><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Lens</span><span class="hs-operator">.</span><span class="hs-identifier">App</span></a><span>         </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-42"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">MediaBag</span><span>         </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-43"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">PDF</span><span>              </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-44"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">SelfContained</span><span>    </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-45"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Shared</span><span>           </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-46"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">UTF8</span><span>             </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">UTF8</span><span>
+</span><a name="line-47"></a><span>
+</span><a name="line-48"></a><span class="hs-identifier">writePandoc</span><span>
+</span><a name="line-49"></a><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">SingI</span><span> </span><a href="#local-6989586621679506329"><span class="hs-identifier hs-type">r</span></a><span>
+</span><a name="line-50"></a><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-identifier hs-type">Bool</span><span>
+</span><a name="line-51"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.Format.html#Format"><span class="hs-identifier hs-type">Format</span></a><span> </span><a href="#local-6989586621679506329"><span class="hs-identifier hs-type">r</span></a><span> </span><span class="hs-char">'True
     -&gt; P.Pandoc
     -&gt; P.MediaBag
     -&gt; WriterOptions
     -&gt; FilePath
     -&gt; IO ()
-writePandoc ft pd bag wo fp = do
+writePandoc dry ft pd bag wo fp = do
     wo' &lt;- mkWriterOptions ft wo bag
     case formatWriter ft of
-      P.IOStringWriter f -&gt;
+      P.IOStringWriter f     -&gt; writeDry $
         UTF8.writeFile fp                =&lt;&lt; f wo' pd
-      P.IOByteStringWriter f -&gt;
+      P.IOByteStringWriter f -&gt; writeDry $
         B.writeFile (UTF8.encodePath fp) =&lt;&lt; f wo' pd
-      P.PureStringWriter f -&gt; case ft of
+      P.PureStringWriter f   -&gt; case ft of
         FPDF pdft -&gt; do
           let eng = pdfEngine pdft
           -- TODO: handle lack of prog?
@@ -68,16 +70,26 @@ writePandoc ft pd bag wo fp = do
           res &lt;- P.makePDF eng f wo' pd
           -- TODO: handle bad res?
           case res of
-            Right res' -&gt; B.writeFile (UTF8.encodePath fp) res'
+            Right res' -&gt; writeDry $
+              B.writeFile (UTF8.encodePath fp) res'
             Left  err  -&gt; do
               errorM &quot;pandoc-sync&quot; &quot;Failed to write PDF file&quot;
               errorM &quot;pandoc-sync&quot; $ TL.unpack (TL.decodeUtf8 err)
-        _ -&gt; do
+        _                    -&gt; writeDry $ do
             let res = f wo' pd
             out &lt;- if htmlFormat ft
                then P.makeSelfContained wo' res
                else return res
             UTF8.writeFile fp out
+  where
+    writeDry :: IO () -&gt; IO ()
+    writeDry w
+      | dry       =
+          noticeM &quot;pandoc-sync&quot; $ printf &quot;Write to %s suppressed because of --dry-run&quot; fp
+      | otherwise = do
+          infoM &quot;pandoc-sync&quot; $ printf &quot;Writing to %s&quot; fp
+          w
+
 
 mkWriterOptions
     :: forall r. SingI r

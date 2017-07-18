@@ -158,9 +158,11 @@ instance (SingI r, SingI w) =&gt; Hashable (Format r w) where
     hashWithSalt s fm = s `hashWithSalt` Bi.encode fm
 
 class AsFormat ft where
-    _FHTML      :: Prism' (ft 'True 'True ) Bool
+    _FHTML      :: Prism' (ft 'True  'True) Bool
     _FSlideShow :: Prism' (ft 'False 'True) SlideShowType
     _FPDF       :: Prism' (ft 'False 'True) PDFType
+    _FODT       :: Prism' (ft 'True  'True) ()
+    _FDocX      :: Prism' (ft 'True  'True) ()
 
 instance AsFormat Format where
     _FHTML = prism FHTML (\case FHTML t -&gt; Right t
@@ -172,6 +174,12 @@ instance AsFormat Format where
     _FPDF = prism FPDF (\case FPDF t -&gt; Right t
                               ft     -&gt; Left ft
                        )
+    _FODT = prism (const FODT) (\case FODT -&gt; Right ()
+                                      ft   -&gt; Left ft
+                               )
+    _FDocX = prism (const FDocX) (\case FDocX -&gt; Right ()
+                                        ft    -&gt; Left ft
+                                 )
 
 asReader :: forall r' r w. SingI r' =&gt; Sing r -&gt; Traversal' (Format r' w) (Format r w)
 asReader sr f = case sing @_ @r' Si.%~ sr of
@@ -341,13 +349,15 @@ deriving instance Ord P.HTMLMathMethod
 instance Bi.Binary P.HTMLMathMethod
 instance Hashable P.HTMLMathMethod
 
-data WriterOptions = WO { _woStandalone   :: Bool
-                        , _woTemplatePath :: Maybe FilePath
-                        , _woDataDir      :: Maybe FilePath
-                        , _woMathMethod   :: P.HTMLMathMethod
-                        , _woVariables    :: M.Map String String
-                        , _woTabStop      :: Int
-                        , _woTOC          :: Bool
+data WriterOptions = WO { _woStandalone    :: Bool
+                        , _woTemplatePath  :: Maybe FilePath
+                        , _woDataDir       :: Maybe FilePath
+                        , _woMathMethod    :: P.HTMLMathMethod
+                        , _woVariables     :: M.Map String String
+                        , _woTabStop       :: Int
+                        , _woTOC           :: Bool
+                        , _woReferenceODT  :: Maybe FilePath
+                        , _woReferenceDocX :: Maybe FilePath
                         }
     deriving (Show, Eq, Ord, Generic)
 
@@ -360,7 +370,7 @@ instance Default ReaderOptions where
     def = RO
 
 instance Default WriterOptions where
-    def = WO True Nothing Nothing P.PlainMath M.empty 4 False
+    def = WO True Nothing Nothing P.PlainMath M.empty 4 False Nothing Nothing
 
 instance Hashable ReaderOptions
 instance Hashable WriterOptions where
@@ -370,6 +380,8 @@ instance Hashable WriterOptions where
                           `hashWithSalt` M.toList (wo ^. woVariables)
                           `hashWithSalt` wo ^. woTabStop
                           `hashWithSalt` wo ^. woTOC
+                          `hashWithSalt` wo ^. woReferenceODT
+                          `hashWithSalt` wo ^. woReferenceDocX
 
 instance FromJSON ReaderOptions
 instance FromJSON WriterOptions where
@@ -381,6 +393,8 @@ instance FromJSON WriterOptions where
          &lt;*&gt; (fromMaybe M.empty &lt;$&gt; v .:? &quot;variables&quot;)
          &lt;*&gt; (fromMaybe 4 &lt;$&gt; v .: &quot;tab-stop&quot;)
          &lt;*&gt; (fromMaybe False &lt;$&gt; (v .: &quot;toc&quot; &lt;|&gt; v .: &quot;table-of-contents&quot;))
+         &lt;*&gt; (v .:? &quot;reference-odt&quot;)
+         &lt;*&gt; (v .:? &quot;reference-docx&quot;)
 
 instance ToJSON ReaderOptions
 instance ToJSON WriterOptions where
@@ -391,7 +405,8 @@ instance ToJSON WriterOptions where
       , ifNotDef &quot;variables&quot;         M.empty (wo ^. woVariables)
       , ifNotDef &quot;tab-stop&quot;          4       (wo ^. woTabStop)
       , ifNotDef &quot;table-of-contents&quot; False   (wo ^. woTOC)
-
+      , ifNotDef &quot;reference-odt&quot;     Nothing (wo ^. woReferenceODT)
+      , ifNotDef &quot;reference-docx&quot;    Nothing (wo ^. woReferenceDocX)
       ]
       where
         ifNotDef :: (ToJSON a, Eq a) =&gt; T.Text -&gt; a -&gt; a -&gt; [(T.Text, Value)]

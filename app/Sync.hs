@@ -1,7 +1,9 @@
+{-# LANGUAGE LambdaCase       #-}
 {-# LANGUAGE RecordWildCards  #-}
 {-# LANGUAGE TypeApplications #-}
 
 import           Control.Applicative
+import           Control.Concurrent
 import           Control.Exception
 import           Control.Lens
 import           Control.Monad
@@ -12,6 +14,7 @@ import           Data.Yaml           (decodeFileEither, encode, prettyPrintParse
 import           Options.Applicative
 import           System.Directory
 import           System.Exit
+import           System.FSNotify
 import           System.IO.Error
 import           System.Log.Logger
 import           Text.Pandoc.Sync
@@ -23,6 +26,7 @@ import qualified Data.Text.Encoding  as T
 data Command = CGenConfig  { _force  :: Bool }
              | CSync       { _dryRun :: Bool }
              | CClean
+             | CWatch
 
 data Opts = O { oConfigFile   :: FilePath
               , oLogLevel     :: Priority
@@ -63,6 +67,9 @@ parseCommand = subparser . mconcat $
               ) <**> helper
              )
              (progDesc "Update files to maintain synchronization")
+    , command "watch"      $
+        info (pure CWatch)
+             (progDesc "Watch file directory for changes, and keep files in sync")
     , command "clean"      $
         info (pure CClean)
              (progDesc "Clean cache and reset state")
@@ -117,6 +124,15 @@ main = do
                                    _             -> ""
             )
         withSync_ sc $ runSync dry oConflictMode
+      CWatch -> withManager $ \mgr -> do
+        sc <- loadConfig oConfigFile
+        new <- newMVar True
+        debugM "pandoc-sync" $ printf "Watching for file changes in directory %s" (sc ^. scRoot)
+        _ <- watchTree mgr (sc ^. scRoot) (const True) $ \e -> do
+          infoM "pandoc-sync" "Change detected!"
+          debugM "pandoc-sync" $ show e
+          modifyMVar_ new $ \_ -> return True
+        watchThread oConflictMode sc new
   where
     loadConfig :: FilePath -> IO SyncConfig
     loadConfig fp = do
@@ -130,6 +146,17 @@ main = do
           debugM "pandoc-sync" $ printf "Loaded configuration file at %s" fp
           debugM "pandoc-sync" . T.unpack . T.decodeUtf8 $ encode sc
           return sc
+
+watchThread :: ConflictMode -> SyncConfig -> MVar Bool -> IO ()
+watchThread cm sc new = forever $ do
+    updated <- modifyMVar new $ \case
+      True  -> return (False, True )
+      False -> return (False, False)
+    when updated $ do
+      infoM "pandoc-sync" "File change detected, re-syncing ..."
+      withSync_ sc $ runSync False  cm
+    threadDelay 1000000
+
 
 sampleConfig :: SyncConfig
 sampleConfig =

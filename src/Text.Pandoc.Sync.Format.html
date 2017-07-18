@@ -41,48 +41,54 @@
 </span><a name="line-41"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#hasIfMaybe"><span class="hs-identifier hs-var">hasIfMaybe</span></a><span>
 </span><a name="line-42"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#allFormats"><span class="hs-identifier hs-var">allFormats</span></a><span>
 </span><a name="line-43"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#allWriters"><span class="hs-identifier hs-var">allWriters</span></a><span>
-</span><a name="line-44"></a><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-45"></a><span>
-</span><a name="line-46"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Applicative</span><span>
-</span><a name="line-47"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Lens</span><span>
-</span><a name="line-48"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Aeson</span><span>
-</span><a name="line-49"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Default</span><span>
-</span><a name="line-50"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Foldable</span><span>
-</span><a name="line-51"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Hashable</span><span>
-</span><a name="line-52"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Kind</span><span>
-</span><a name="line-53"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Maybe</span><span>
-</span><a name="line-54"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span>
-</span><a name="line-55"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span class="hs-operator">.</span><span class="hs-identifier">Prelude</span><span class="hs-operator">.</span><span class="hs-identifier">Bool</span><span>
-</span><a name="line-56"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Type</span><span class="hs-operator">.</span><span class="hs-identifier">Equality</span><span>
-</span><a name="line-57"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">GHC</span><span class="hs-operator">.</span><span class="hs-identifier">Generics</span><span>                 </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">)</span><span>
-</span><a name="line-58"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Binary</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">Bi</span><span>
-</span><a name="line-59"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">IntMap</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">IM</span><span>
-</span><a name="line-60"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Map</span><span>                     </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">M</span><span>
-</span><a name="line-61"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span class="hs-operator">.</span><span class="hs-identifier">Decide</span><span>       </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">Si</span><span>
-</span><a name="line-62"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Megaparsec</span><span>              </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">MP</span><span>
-</span><a name="line-63"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Megaparsec</span><span class="hs-operator">.</span><span class="hs-identifier">Lexer</span><span>        </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">MPL</span><span>
-</span><a name="line-64"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Megaparsec</span><span class="hs-operator">.</span><span class="hs-identifier">Text</span><span>         </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">MP</span><span>
-</span><a name="line-65"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
-</span><a name="line-66"></a><span>
-</span><a name="line-67"></a><span class="hs-keyword">data</span><span> </span><a name="MarkdownType"><a href="Text.Pandoc.Sync.Format.html#MarkdownType"><span class="hs-identifier">MarkdownType</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="MDPandoc"><a href="Text.Pandoc.Sync.Format.html#MDPandoc"><span class="hs-identifier">MDPandoc</span></a></a><span>
-</span><a name="line-68"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDStrict"><a href="Text.Pandoc.Sync.Format.html#MDStrict"><span class="hs-identifier">MDStrict</span></a></a><span>
-</span><a name="line-69"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDPHP"><a href="Text.Pandoc.Sync.Format.html#MDPHP"><span class="hs-identifier">MDPHP</span></a></a><span>
-</span><a name="line-70"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDGithub"><a href="Text.Pandoc.Sync.Format.html#MDGithub"><span class="hs-identifier">MDGithub</span></a></a><span>
-</span><a name="line-71"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDMulti"><a href="Text.Pandoc.Sync.Format.html#MDMulti"><span class="hs-identifier">MDMulti</span></a></a><span>
-</span><a name="line-72"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDCommon"><a href="Text.Pandoc.Sync.Format.html#MDCommon"><span class="hs-identifier">MDCommon</span></a></a><span>
-</span><a name="line-73"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Eq</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Ord</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Enum</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Bounded</span><span class="hs-special">)</span><span>
-</span><a name="line-74"></a><span>
-</span><a name="line-75"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">Bi</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Binary</span><span> </span><a href="Text.Pandoc.Sync.Format.html#MarkdownType"><span class="hs-identifier hs-type">MarkdownType</span></a><span>
-</span><a name="line-76"></a><span>
-</span><a name="line-77"></a><span class="hs-keyword">data</span><span> </span><a name="SlideShowType"><a href="Text.Pandoc.Sync.Format.html#SlideShowType"><span class="hs-identifier">SlideShowType</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="SSS5"><a href="Text.Pandoc.Sync.Format.html#SSS5"><span class="hs-identifier">SSS5</span></a></a><span>
-</span><a name="line-78"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSSlidy"><a href="Text.Pandoc.Sync.Format.html#SSSlidy"><span class="hs-identifier">SSSlidy</span></a></a><span>
-</span><a name="line-79"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSSlideous"><a href="Text.Pandoc.Sync.Format.html#SSSlideous"><span class="hs-identifier">SSSlideous</span></a></a><span>
-</span><a name="line-80"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSDZSlides"><a href="Text.Pandoc.Sync.Format.html#SSDZSlides"><span class="hs-identifier">SSDZSlides</span></a></a><span>
-</span><a name="line-81"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSRevealJS"><a href="Text.Pandoc.Sync.Format.html#SSRevealJS"><span class="hs-identifier">SSRevealJS</span></a></a><span>
-</span><a name="line-82"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSBeamer"><a href="Text.Pandoc.Sync.Format.html#SSBeamer"><span class="hs-identifier">SSBeamer</span></a></a><span>
-</span><a name="line-83"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Eq</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Ord</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Enum</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Bounded</span><span class="hs-special">)</span><span>
-</span><a name="line-84"></a><span>
-</span><a name="line-85"></a><span class="hs-identifier hs-var">makeClassyPrisms</span><span> </span><span class="hs-char">''SlideShowType
+</span><a name="line-44"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.Format.html#inferWriter"><span class="hs-identifier hs-var">inferWriter</span></a><span>
+</span><a name="line-45"></a><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><a name="line-46"></a><span>
+</span><a name="line-47"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Applicative</span><span>
+</span><a name="line-48"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Lens</span><span> </span><span class="hs-keyword">hiding</span><span>          </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-operator hs-var">.=</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-49"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Aeson</span><span>
+</span><a name="line-50"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Aeson</span><span class="hs-operator">.</span><span class="hs-identifier">Lens</span><span>
+</span><a name="line-51"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Char</span><span>
+</span><a name="line-52"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Default</span><span>
+</span><a name="line-53"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Foldable</span><span>
+</span><a name="line-54"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Hashable</span><span>
+</span><a name="line-55"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Kind</span><span>
+</span><a name="line-56"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Maybe</span><span>
+</span><a name="line-57"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Monoid</span><span>
+</span><a name="line-58"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span>
+</span><a name="line-59"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span class="hs-operator">.</span><span class="hs-identifier">Prelude</span><span class="hs-operator">.</span><span class="hs-identifier">Bool</span><span>
+</span><a name="line-60"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Type</span><span class="hs-operator">.</span><span class="hs-identifier">Equality</span><span>
+</span><a name="line-61"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">GHC</span><span class="hs-operator">.</span><span class="hs-identifier">Generics</span><span>                 </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">)</span><span>
+</span><a name="line-62"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Printf</span><span>
+</span><a name="line-63"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Binary</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">Bi</span><span>
+</span><a name="line-64"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">IntMap</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">IM</span><span>
+</span><a name="line-65"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Map</span><span>                     </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">M</span><span>
+</span><a name="line-66"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span class="hs-operator">.</span><span class="hs-identifier">Decide</span><span>       </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">Si</span><span>
+</span><a name="line-67"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Text</span><span>                    </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">T</span><span>
+</span><a name="line-68"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Megaparsec</span><span>              </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">MP</span><span>
+</span><a name="line-69"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Megaparsec</span><span class="hs-operator">.</span><span class="hs-identifier">Lexer</span><span>        </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">MPL</span><span>
+</span><a name="line-70"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Megaparsec</span><span class="hs-operator">.</span><span class="hs-identifier">Text</span><span>         </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">MP</span><span>
+</span><a name="line-71"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-72"></a><span>
+</span><a name="line-73"></a><span class="hs-keyword">data</span><span> </span><a name="MarkdownType"><a href="Text.Pandoc.Sync.Format.html#MarkdownType"><span class="hs-identifier">MarkdownType</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="MDPandoc"><a href="Text.Pandoc.Sync.Format.html#MDPandoc"><span class="hs-identifier">MDPandoc</span></a></a><span>
+</span><a name="line-74"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDStrict"><a href="Text.Pandoc.Sync.Format.html#MDStrict"><span class="hs-identifier">MDStrict</span></a></a><span>
+</span><a name="line-75"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDPHP"><a href="Text.Pandoc.Sync.Format.html#MDPHP"><span class="hs-identifier">MDPHP</span></a></a><span>
+</span><a name="line-76"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDGithub"><a href="Text.Pandoc.Sync.Format.html#MDGithub"><span class="hs-identifier">MDGithub</span></a></a><span>
+</span><a name="line-77"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDMulti"><a href="Text.Pandoc.Sync.Format.html#MDMulti"><span class="hs-identifier">MDMulti</span></a></a><span>
+</span><a name="line-78"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="MDCommon"><a href="Text.Pandoc.Sync.Format.html#MDCommon"><span class="hs-identifier">MDCommon</span></a></a><span>
+</span><a name="line-79"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Eq</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Ord</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Enum</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Bounded</span><span class="hs-special">)</span><span>
+</span><a name="line-80"></a><span>
+</span><a name="line-81"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">Bi</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Binary</span><span> </span><a href="Text.Pandoc.Sync.Format.html#MarkdownType"><span class="hs-identifier hs-type">MarkdownType</span></a><span>
+</span><a name="line-82"></a><span>
+</span><a name="line-83"></a><span class="hs-keyword">data</span><span> </span><a name="SlideShowType"><a href="Text.Pandoc.Sync.Format.html#SlideShowType"><span class="hs-identifier">SlideShowType</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="SSS5"><a href="Text.Pandoc.Sync.Format.html#SSS5"><span class="hs-identifier">SSS5</span></a></a><span>
+</span><a name="line-84"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSSlidy"><a href="Text.Pandoc.Sync.Format.html#SSSlidy"><span class="hs-identifier">SSSlidy</span></a></a><span>
+</span><a name="line-85"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSSlideous"><a href="Text.Pandoc.Sync.Format.html#SSSlideous"><span class="hs-identifier">SSSlideous</span></a></a><span>
+</span><a name="line-86"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSDZSlides"><a href="Text.Pandoc.Sync.Format.html#SSDZSlides"><span class="hs-identifier">SSDZSlides</span></a></a><span>
+</span><a name="line-87"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSRevealJS"><a href="Text.Pandoc.Sync.Format.html#SSRevealJS"><span class="hs-identifier">SSRevealJS</span></a></a><span>
+</span><a name="line-88"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="SSBeamer"><a href="Text.Pandoc.Sync.Format.html#SSBeamer"><span class="hs-identifier">SSBeamer</span></a></a><span>
+</span><a name="line-89"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Eq</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Ord</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Enum</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Bounded</span><span class="hs-special">)</span><span>
+</span><a name="line-90"></a><span>
+</span><a name="line-91"></a><span class="hs-identifier hs-var">makeClassyPrisms</span><span> </span><span class="hs-char">''SlideShowType
 
 instance Bi.Binary SlideShowType
 
@@ -98,6 +104,7 @@ data Format :: Bool -&gt; Bool -&gt; Type where
     FNative       :: Format 'True  'True
     FJSON         :: Format 'True  'True
     FMarkdown     :: MarkdownType
+                  -&gt; Bool           -- LHS
                   -&gt; Format 'True  'True
     FRST          :: Format 'True  'True
     FMediaWiki    :: Format 'True  'True
@@ -179,13 +186,6 @@ writeOnly = case sing @_ @r of
 data Writer :: (Bool -&gt; Bool -&gt; Type) -&gt; Type where
     Writer :: SingI r =&gt; f r 'True -&gt; Writer f
 
-instance FromJSON (Writer Format) where
-    parseJSON v = do
-      SomeFormat sr sw ft &lt;- parseJSON v
-      case sw of
-        SFalse -&gt; fail &quot;Unwritable format given where writable format is expected&quot;
-        STrue  -&gt; withSingI sr $ return (Writer ft)
-
 instance Show (Writer Format) where
     showsPrec d (Writer ft) = showParen (d &gt; app_prec) $
         showString &quot;Writer &quot; . showsPrec (app_prec + 1) ft
@@ -213,7 +213,7 @@ instance Bi.Binary SomeFormat where
       where
         ftmap = IM.fromList [(0, return $ someFormat FNative          )
                             ,(1, return $ someFormat FJSON            )
-                            ,(2, someFormat . FMarkdown &lt;$&gt; Bi.get    )
+                            ,(2, someFormat &lt;$&gt; (FMarkdown &lt;$&gt; Bi.get &lt;*&gt; Bi.get))
                             ,(3, return $ someFormat FRST             )
                             ,(4, return $ someFormat FMediaWiki       )
                             ,(5, someFormat . FDocBook &lt;$&gt; Bi.get     )
@@ -248,7 +248,7 @@ instance Bi.Binary SomeFormat where
     put (SomeFormat _ _ ft) = case ft of
       FNative        -&gt; Bi.put @Int 0
       FJSON          -&gt; Bi.put @Int 1
-      FMarkdown mt   -&gt; Bi.put @Int 2 *&gt; Bi.put mt
+      FMarkdown mt l -&gt; Bi.put @Int 2 *&gt; Bi.put mt *&gt; Bi.put l
       FRST           -&gt; Bi.put @Int 3
       FMediaWiki     -&gt; Bi.put @Int 4
       FDocBook v     -&gt; Bi.put @Int 5 *&gt; Bi.put v
@@ -289,6 +289,7 @@ data HasIf :: Bool -&gt; Type -&gt; Type where
     Has    :: a -&gt; HasIf 'True a
     Hasn't :: HasIf 'False a
 
+deriving instance Eq a   =&gt; Eq (HasIf b a)
 deriving instance Show a =&gt; Show (HasIf b a)
 
 _Has :: Iso' (HasIf 'True a) a
@@ -302,12 +303,12 @@ hasIfMaybe = \case
     Has  x -&gt; Just x
     Hasn't -&gt; Nothing
 
--- _HasMaybe :: forall r a b. SingI r =&gt; Prism (HasIf r a) (HasIf r b) a b
--- _HasMaybe = prism (case sing @_ @r of
---                      STrue -&gt; Has
---                      SFalse -&gt; const Hasn't
---                   )
---                   (\case Has x -&gt; Right x; Hasn't -&gt; Left Hasn't)
+_HasIf :: forall r a b. SingI r =&gt; Prism (HasIf r a) (HasIf r b) a b
+_HasIf = prism (case sing @_ @r of
+                  STrue -&gt; Has
+                  SFalse -&gt; const Hasn't
+               )
+               (\case Has x -&gt; Right x; Hasn't -&gt; Left Hasn't)
 
 instance (SingI b, Bi.Binary a) =&gt; Bi.Binary (HasIf b a) where
     get = case sing @_ @b of
@@ -381,6 +382,22 @@ instance FromJSON WriterOptions where
          &lt;*&gt; (fromMaybe 4 &lt;$&gt; v .: &quot;tab-stop&quot;)
          &lt;*&gt; (fromMaybe False &lt;$&gt; (v .: &quot;toc&quot; &lt;|&gt; v .: &quot;table-of-contents&quot;))
 
+instance ToJSON ReaderOptions
+instance ToJSON WriterOptions where
+    toJSON wo = object $ mconcat
+      [ ifNotDef &quot;standalone&quot;        True    (wo ^. woStandalone)
+      , [ &quot;template-path&quot; .= (wo ^. woTemplatePath) ]
+      , [ &quot;data-dir&quot;      .= (wo ^. woDataDir)      ]
+      , ifNotDef &quot;variables&quot;         M.empty (wo ^. woVariables)
+      , ifNotDef &quot;tab-stop&quot;          4       (wo ^. woTabStop)
+      , ifNotDef &quot;table-of-contents&quot; False   (wo ^. woTOC)
+
+      ]
+      where
+        ifNotDef :: (ToJSON a, Eq a) =&gt; T.Text -&gt; a -&gt; a -&gt; [(T.Text, Value)]
+        ifNotDef t d x | d == x    = []
+                       | otherwise = [t .= x]
+
 data FormatOptions :: Bool -&gt; Bool -&gt; Type where
     FormatOptions :: { _foFormat     :: Format r w
                      , _foReaderOpts :: HasIf r ReaderOptions
@@ -425,7 +442,15 @@ instance FromJSON (Writer FormatOptions) where
             FormatOptions ft (fromMaybe def ro) (fromMaybe def wo)
         noOpts t = parseJSON t &lt;&amp;&gt; \case
           Writer ft -&gt; Writer (FormatOptions ft def def)
-      
+
+instance ToJSON (Writer FormatOptions) where
+    toJSON (Writer fo)
+      | (fo ^. foReaderOpts == def) &amp;&amp; (fo ^. foWriterOpts == def) =
+            toJSON (fo ^. foFormat)
+      | otherwise =
+            let rm = fo ^? foReaderOpts . _HasIf . re (_JSON @Value) . _Object
+                wm = fo ^. foWriterOpts . _Has   . re (_JSON @Value) . _Object
+            in  Object $ fold rm &lt;&gt; wm
 
 instance Show (Writer FormatOptions) where
     showsPrec d (Writer fo) = showParen (d &gt; app_prec) $
@@ -435,14 +460,6 @@ instance Show (Writer FormatOptions) where
 
 fromReaderOptions :: ReaderOptions -&gt; P.ReaderOptions
 fromReaderOptions _ = def
-
--- data FormatOptions :: Bool -&gt; Bool -&gt; Type where
---     FormatOptions :: { _foFormat     :: Format r w
---                      , _foReaderOpts :: HasIf r ReaderOptions
---                      , _foWriterOpts :: HasIf w WriterOptions
---                      }
---                -&gt; FormatOptions r w
---   deriving (Show, Generic)
 
 -- writerOptions :: Format r w -&gt; WriterOptions -&gt; P.WriterOptions
 -- writerOptions _ _ = def
@@ -470,7 +487,7 @@ readerString :: Format 'True w -&gt; String
 readerString = \case
     FNative       -&gt; &quot;native&quot;
     FJSON         -&gt; &quot;json&quot;
-    FMarkdown mt  -&gt; case mt of
+    FMarkdown mt _ -&gt; case mt of
       MDPandoc    -&gt; &quot;markdown&quot;
       MDStrict    -&gt; &quot;markdown_strict&quot;
       MDPHP       -&gt; &quot;markdown_phpextra&quot;
@@ -497,7 +514,7 @@ writerString :: Format r 'True -&gt; String
 writerString = \case
     FNative        -&gt; &quot;native&quot;
     FJSON          -&gt; &quot;json&quot;
-    FMarkdown mt   -&gt; case mt of
+    FMarkdown mt _ -&gt; case mt of
       MDPandoc     -&gt; &quot;markdown&quot;
       MDStrict     -&gt; &quot;markdown_strict&quot;
       MDPHP        -&gt; &quot;markdown_phpextra&quot;
@@ -539,49 +556,6 @@ writerString = \case
     FRTF           -&gt; &quot;rtf&quot;
     FMkWriteOnly f -&gt; writerString f            -- any way to indicate?
 
--- formatString :: Format r w -&gt; String
--- formatString = \case
---     FNative       -&gt; &quot;native&quot;
---     FJSON         -&gt; &quot;json&quot;
---     FMarkdown mt  -&gt; case mt of
---       MDPandoc    -&gt; &quot;markdown&quot;
---       MDStrict    -&gt; &quot;markdown_strict&quot;
---       MDPHP       -&gt; &quot;markdown_phpextra&quot;
---       MDGithub    -&gt; &quot;markdown_github&quot;
---       MDMulti     -&gt; &quot;markdown_mmd&quot;
---       MDCommon    -&gt; &quot;commonmark&quot;
---     FRST          -&gt; &quot;rst&quot;
---     FMediaWiki    -&gt; &quot;mediawiki&quot;
---     FDocBook      -&gt; &quot;docbook&quot;
---     FOPML         -&gt; &quot;opml&quot;
---     FOrg          -&gt; &quot;org&quot;
---     FTextile      -&gt; &quot;textile&quot;
---     FHTML five    -&gt; &quot;html&quot; ++ if five then &quot;5&quot; else &quot;&quot;
---     FLaTeX        -&gt; &quot;latex&quot;
---     FHaddock      -&gt; &quot;haddock&quot;
---     FDocX         -&gt; &quot;docx&quot;
---     FODT          -&gt; &quot;odf&quot;
---     FEPub epv     -&gt; &quot;epub&quot; ++ case epv of P.EPUB2 -&gt; &quot;&quot;; P.EPUB3 -&gt; &quot;&quot;
---     FFictionBook2 -&gt; &quot;fb2&quot;
---     FICML         -&gt; &quot;icml&quot;
---     FSlideShow ss -&gt; case ss of
---       SSS5        -&gt; &quot;s5&quot;
---       SSSlidy     -&gt; &quot;slidy&quot;
---       SSSlideous  -&gt; &quot;slideous&quot;
---       SSDZSlides  -&gt; &quot;dzslides&quot;
---       SSRevealJS  -&gt; &quot;revealjs&quot;
---       SSBeamer    -&gt; &quot;beamer&quot;
---     FOpenDocument -&gt; &quot;opendocument&quot;
---     FContext      -&gt; &quot;context&quot;
---     FTexinfo      -&gt; &quot;texinfo&quot;
---     FMan          -&gt; &quot;man&quot;
---     FPlain        -&gt; &quot;plain&quot;
---     FDokuWiki     -&gt; &quot;dokuwiki&quot;
---     FASCIIDoc     -&gt; &quot;asciidoc&quot;
---     FTEI          -&gt; &quot;tei&quot;
---     FTWiki        -&gt; &quot;twiki&quot;
---     FT2T          -&gt; &quot;t2t&quot;
-
 allFormats :: [SomeFormat]
 allFormats = concat [ all'
                     , someFormat . FMkWriteOnly &lt;$&gt; mapMaybe rw all'
@@ -592,7 +566,7 @@ allFormats = concat [ all'
       [ [ someFormat FNative
         , someFormat FJSON
         ]
-      , someFormat . FMarkdown &lt;$&gt; [minBound .. maxBound]
+      , someFormat &lt;$&gt; (FMarkdown &lt;$&gt; [minBound .. maxBound] &lt;*&gt; [False, True])
       , [ someFormat FRST
         , someFormat FMediaWiki
         ]
@@ -655,15 +629,26 @@ filterSomeFormat sr sw (SomeFormat sr' sw' ft) = do
 parseSomeFormat :: MP.Parser SomeFormat
 parseSomeFormat = do
     baseFormat &lt;- asum [ MP.try singleWord
-                       , someFormat . FMarkdown &lt;$&gt; MP.try markdown
+                       , someFormat . ($ False) . FMarkdown &lt;$&gt; MP.try markdown
                        ]
+    lhs     &lt;- asum [ MP.try $ True &lt;$ symbol &quot;lhs&quot;
+                    , MP.try $ True &lt;$ symbol &quot;literate&quot;
+                    , pure False
+                    ]
+    let lhsFormat = case baseFormat of
+          SomeFormat sr sw ft -&gt; SomeFormat sr sw $
+            case ft of
+              FMarkdown t l -&gt; FMarkdown t (l || lhs)
+              _             -&gt; ft
     modFlag &lt;- asum [ MP.try $ someFormat . FMkReadOnly  &lt;$ symbol &quot;readonly&quot;
                     , MP.try $ someFormat . FMkReadOnly  &lt;$ symbol &quot;ro&quot;
+                    , MP.try $ someFormat . FMkReadOnly  &lt;$ symbol &quot;?&quot;
                     , MP.try $ someFormat . FMkWriteOnly &lt;$ symbol &quot;writeonly&quot;
                     , MP.try $ someFormat . FMkWriteOnly &lt;$ symbol &quot;wo&quot;
+                    , MP.try $ someFormat . FMkWriteOnly &lt;$ symbol &quot;*&quot;
                     , pure $ someFormat
                     ]
-    return $ case baseFormat of
+    return $ case lhsFormat of
        SomeFormat STrue STrue ft -&gt; modFlag ft
        SomeFormat sr    sw    ft -&gt; SomeFormat sr sw ft
   where
@@ -673,6 +658,7 @@ parseSomeFormat = do
       _ &lt;- MP.try (symbol &quot;markdown&quot;) &lt;|&gt; symbol &quot;md&quot;
       asum [ MP.try $ MDStrict &lt;$ symbol &quot;strict&quot;
            , MP.try $ MDPHP    &lt;$ symbol &quot;phpextra&quot;
+           , MP.try $ MDPHP    &lt;$ symbol &quot;phpextras&quot;
            , MP.try $ MDPHP    &lt;$ symbol &quot;php&quot;
            , MP.try $ MDGithub &lt;$ symbol &quot;github&quot;
            , MP.try $ MDGithub &lt;$ symbol &quot;gh&quot;
@@ -691,8 +677,10 @@ parseSomeFormat = do
       [ (&quot;native&quot;      , someFormat FNative                )
       , (&quot;haskell&quot;     , someFormat FNative                )
       , (&quot;json&quot;        , someFormat FJSON                  )
-      , (&quot;common&quot;      , someFormat (FMarkdown MDCommon)   )
-      , (&quot;commonmark&quot;  , someFormat (FMarkdown MDCommon)   )
+      , (&quot;common&quot;      , someFormat (FMarkdown MDCommon False))
+      , (&quot;commonmark&quot;  , someFormat (FMarkdown MDCommon False)   )
+      , (&quot;multimark&quot;   , someFormat (FMarkdown MDMulti False)   )
+      , (&quot;multimarkdown&quot;, someFormat (FMarkdown MDMulti False)   )
       , (&quot;html&quot;        , someFormat (FHTML True)           )
       , (&quot;html4&quot;       , someFormat (FHTML False)          )
       , (&quot;html5&quot;       , someFormat (FHTML True)           )
@@ -702,7 +690,9 @@ parseSomeFormat = do
       , (&quot;epub2&quot;       , someFormat (FEPub P.EPUB2)        )
       , (&quot;epub3&quot;       , someFormat (FEPub P.EPUB3)        )
       , (&quot;docbook&quot;     , someFormat (FDocBook False)       )
+      , (&quot;db&quot;          , someFormat (FDocBook False)       )
       , (&quot;docbook5&quot;    , someFormat (FDocBook True)        )
+      , (&quot;db5&quot;         , someFormat (FDocBook False)       )
       , (&quot;rst&quot;         , someFormat FRST                   )
       , (&quot;mediawiki&quot;   , someFormat FMediaWiki             )
       , (&quot;opml&quot;        , someFormat FOPML                  )
@@ -728,6 +718,7 @@ parseSomeFormat = do
       , (&quot;context&quot;     , someFormat FConTeXt               )
       , (&quot;context-pdf&quot; , someFormat (FPDF PTConTeXt)       )
       , (&quot;texinfo&quot;     , someFormat FTexinfo               )
+      , (&quot;texi&quot;        , someFormat FTexinfo               )
       , (&quot;man&quot;         , someFormat FMan                   )
       , (&quot;plain&quot;       , someFormat FPlain                 )
       , (&quot;dokuwiki&quot;    , someFormat FDokuWiki              )
@@ -735,6 +726,7 @@ parseSomeFormat = do
       , (&quot;zimwiki&quot;     , someFormat FZimWiki               )
       , (&quot;zim&quot;         , someFormat FZimWiki               )
       , (&quot;asciidoc&quot;    , someFormat FASCIIDoc              )
+      , (&quot;adoc&quot;        , someFormat FASCIIDoc              )
       , (&quot;tei&quot;         , someFormat FTEI                   )
       , (&quot;rtf&quot;         , someFormat FRTF                   )
       , (&quot;s5&quot;          , someFormat (FSlideShow SSS5)      )
@@ -756,4 +748,117 @@ instance FromJSON SomeFormat where
         Left  e  -&gt; fail $ MP.parseErrorPretty e
         Right sf -&gt; return sf
 
+unparseFormat :: Format r w -&gt; T.Text
+unparseFormat = \case
+    FNative       -&gt; &quot;native&quot;
+    FJSON         -&gt; &quot;json&quot;
+    FMarkdown mt t -&gt; (if t then id else (&lt;&gt; &quot; lhs&quot;)) $ case mt of
+      MDPandoc -&gt; &quot;markdown&quot;
+      MDStrict -&gt; &quot;markdown strict&quot;
+      MDPHP    -&gt; &quot;markdown phpextra&quot;
+      MDGithub -&gt; &quot;markdown github&quot;
+      MDMulti  -&gt; &quot;multimarkdown&quot;
+      MDCommon -&gt; &quot;commonmark&quot;
+    FRST          -&gt; &quot;rst&quot;
+    FMediaWiki    -&gt; &quot;mediawiki&quot;
+    FDocBook t    -&gt; &quot;docbook&quot; &lt;&gt; if t then &quot;5&quot; else &quot;&quot;
+    FOPML         -&gt; &quot;opml&quot;
+    FOrg          -&gt; &quot;org&quot;
+    FTextile      -&gt; &quot;textile&quot;
+    FHTML t       -&gt; &quot;html&quot; &lt;&gt; if t then &quot;5&quot; else &quot;&quot;
+    FLaTeX        -&gt; &quot;latex&quot;
+    FHaddock      -&gt; &quot;haddock&quot;
+    FTWiki        -&gt; &quot;twiki&quot;
+    FDocX         -&gt; &quot;docx&quot;
+    FODT          -&gt; &quot;odf&quot;
+    FT2T          -&gt; &quot;t2t&quot;
+    FEPub t       -&gt; &quot;epub&quot; &lt;&gt; case t of P.EPUB2 -&gt; &quot;&quot;; P.EPUB3 -&gt; &quot;e&quot;
+    FFictionBook2 -&gt; &quot;fb2&quot;
+    FICML         -&gt; &quot;icml&quot;
+    FSlideShow ss -&gt; case ss of
+      SSS5       -&gt; &quot;s5&quot;
+      SSSlidy    -&gt; &quot;slidy&quot;
+      SSSlideous -&gt; &quot;slideous&quot;
+      SSDZSlides -&gt; &quot;dzslides&quot;
+      SSRevealJS -&gt; &quot;revealjs&quot;
+      SSBeamer   -&gt; &quot;beamer-latex&quot;
+    FOpenDocument -&gt; &quot;opendocument&quot;
+    FConTeXt      -&gt; &quot;context&quot;
+    FTexinfo      -&gt; &quot;texinfo&quot;
+    FMan          -&gt; &quot;man&quot;
+    FPlain        -&gt; &quot;plain&quot;
+    FDokuWiki     -&gt; &quot;dokuwiki&quot;
+    FZimWiki      -&gt; &quot;zimwiki&quot;
+    FASCIIDoc     -&gt; &quot;asciidoc&quot;
+    FTEI          -&gt; &quot;tei&quot;
+    FPDF t        -&gt; case t of
+      PTLaTeX   -&gt; &quot;pdf&quot;
+      PTBeamer  -&gt; &quot;beamer&quot;
+      PTConTeXt -&gt; &quot;context-pdf&quot;
+      PTHTML5   -&gt; &quot;html5-pdf&quot;
+    FRTF           -&gt; &quot;rtf&quot;
+    FMkWriteOnly t -&gt; unparseFormat t &lt;&gt; &quot;*&quot;
+    FMkReadOnly  t -&gt; unparseFormat t &lt;&gt; &quot;?&quot;
+
+instance ToJSON (Format r w) where
+    toJSON = toJSON . unparseFormat
+
+instance FromJSON (Writer Format) where
+    parseJSON v = do
+      SomeFormat sr sw ft &lt;- parseJSON v
+      case sw of
+        SFalse -&gt; fail $ printf &quot;A writable format is expected, but `%s` is %s.%s&quot;
+                            (unparseFormat ft)
+                            (case sr of STrue  -&gt; &quot;read-only&quot;
+                                        SFalse -&gt; &quot;neither writable nor readable&quot;
+                               :: String
+                            )
+                            (case ft of
+                                 FMkReadOnly ft' -&gt; printf &quot; Did you intend to write `%s`?&quot;
+                                                      (unparseFormat ft')
+                                 _               -&gt; &quot;&quot;
+                               :: String
+                            )
+        STrue  -&gt; withSingI sr $ return (Writer ft)
+
+inferWriter :: String -&gt; Writer Format
+inferWriter ext = case map toLower ext of
+    &quot;&quot;         -&gt; Writer $ FMarkdown MDPandoc False
+    &quot;tex&quot;      -&gt; Writer $ FLaTeX
+    &quot;latex&quot;    -&gt; Writer $ FLaTeX
+    &quot;ltx&quot;      -&gt; Writer $ FLaTeX
+    &quot;context&quot;  -&gt; Writer $ FConTeXt
+    &quot;ctx&quot;      -&gt; Writer $ FConTeXt
+    &quot;rtf&quot;      -&gt; Writer FRTF
+    &quot;rst&quot;      -&gt; Writer FRST
+    &quot;s5&quot;       -&gt; Writer $ FSlideShow SSS5
+    &quot;native&quot;   -&gt; Writer FNative
+    &quot;json&quot;     -&gt; Writer FJSON
+    &quot;txt&quot;      -&gt; Writer $ FMarkdown MDPandoc False
+    &quot;text&quot;     -&gt; Writer $ FMarkdown MDPandoc False
+    &quot;md&quot;       -&gt; Writer $ FMarkdown MDPandoc False
+    &quot;markdown&quot; -&gt; Writer $ FMarkdown MDPandoc False
+    &quot;textile&quot;  -&gt; Writer $ FTextile
+    &quot;lhs&quot;      -&gt; Writer $ FMarkdown MDPandoc True
+    &quot;texi&quot;     -&gt; Writer FTexinfo
+    &quot;texinfo&quot;  -&gt; Writer FTexinfo
+    &quot;db&quot;       -&gt; Writer $ FDocBook False
+    &quot;db5&quot;      -&gt; Writer $ FDocBook True
+    &quot;odt&quot;      -&gt; Writer FODT
+    &quot;docx&quot;     -&gt; Writer FDocX
+    &quot;epub&quot;     -&gt; Writer $ FEPub P.EPUB2
+    &quot;epub2&quot;    -&gt; Writer $ FEPub P.EPUB2
+    &quot;epub3&quot;    -&gt; Writer $ FEPub P.EPUB3
+    &quot;org&quot;      -&gt; Writer FOrg
+    &quot;asciidoc&quot; -&gt; Writer FASCIIDoc
+    &quot;adoc&quot;     -&gt; Writer FASCIIDoc
+    &quot;pdf&quot;      -&gt; Writer $ FPDF PTLaTeX
+    &quot;fb2&quot;      -&gt; Writer FFictionBook2
+    &quot;opml&quot;     -&gt; Writer FOPML
+    &quot;icml&quot;     -&gt; Writer FICML
+    &quot;tei.xml&quot;  -&gt; Writer FTEI
+    &quot;tei&quot;      -&gt; Writer FTEI
+    [y] | y `elem` ['1'..'9'] -&gt; Writer FMan
+    &quot;html5&quot;     -&gt; Writer $ FHTML True
+    _           -&gt; Writer $ FHTML False
 </span></pre></body></html>

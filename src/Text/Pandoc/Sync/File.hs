@@ -66,6 +66,7 @@ import qualified Text.Pandoc.MediaBag         as P
 import qualified Text.Pandoc.Readers.LaTeX    as P
 import qualified Text.Pandoc.Shared           as P
 
+-- TODO: include pandoc and mediabag in snapshot
 data Snapshot = Snap { _snapTime :: UTCTime
                      , _snapHash :: B.ByteString
                      }

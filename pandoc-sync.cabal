@@ -35,6 +35,7 @@ library
                      , hashable
                      , hslogger
                      , lens
+                     , lens-aeson
                      , megaparsec
                      , pandoc
                      , psqueues
@@ -60,6 +61,7 @@ executable pandoc-sync
                      , optparse-applicative
                      , pandoc-sync
                      , yaml
+                     , text
   default-language:    Haskell2010
 
 -- test-suite pandoc-sync-test

@@ -7,11 +7,13 @@ import           Control.Monad
 import           Data.Default
 import           Data.Foldable
 import           Data.Monoid
-import           Data.Yaml           (decodeFileEither)
+import           Data.Yaml           (decodeFileEither, encode, prettyPrintParseException)
 import           Options.Applicative
 import           System.Directory
 import           System.Log.Logger
 import           Text.Pandoc.Sync
+import qualified Data.Text           as T
+import qualified Data.Text.Encoding  as T
 
 data Opts = O { oConfigFile   :: FilePath
               , oLogLevel     :: Priority
@@ -57,9 +59,10 @@ main = do
     case sce of
       Left  e  -> do
         errorM "pandoc-sync" "Could not parse log file:"
-        errorM "pandoc-sync" (show e)
+        errorM "pandoc-sync" (prettyPrintParseException e)
       Right sc -> do
         debugM "pandoc-sync" $ "Loaded configuration file at " ++ oConfigFile
+        debugM "pandoc-sync" . T.unpack . T.decodeUtf8 $ encode sc
         when oClean $ do
           noticeM "pandoc-sync" $ "Resetting cache at " ++ (sc ^. scCache)
           removeFile (sc ^. scCache)

@@ -44,21 +44,25 @@ module Text.Pandoc.Sync.Format (
   ) where
 
 import           Control.Applicative
-import           Control.Lens
+import           Control.Lens hiding          ((.=))
 import           Data.Aeson
+import           Data.Aeson.Lens
 import           Data.Default
 import           Data.Foldable
 import           Data.Hashable
 import           Data.Kind
 import           Data.Maybe
+import           Data.Monoid
 import           Data.Singletons
 import           Data.Singletons.Prelude.Bool
 import           Data.Type.Equality
 import           GHC.Generics                 (Generic)
+import           Text.Printf
 import qualified Data.Binary                  as Bi
 import qualified Data.IntMap                  as IM
 import qualified Data.Map                     as M
 import qualified Data.Singletons.Decide       as Si
+import qualified Data.Text                    as T
 import qualified Text.Megaparsec              as MP
 import qualified Text.Megaparsec.Lexer        as MPL
 import qualified Text.Megaparsec.Text         as MP
@@ -179,13 +183,6 @@ writeOnly = case sing @_ @r of
 data Writer :: (Bool -> Bool -> Type) -> Type where
     Writer :: SingI r => f r 'True -> Writer f
 
-instance FromJSON (Writer Format) where
-    parseJSON v = do
-      SomeFormat sr sw ft <- parseJSON v
-      case sw of
-        SFalse -> fail "Unwritable format given where writable format is expected"
-        STrue  -> withSingI sr $ return (Writer ft)
-
 instance Show (Writer Format) where
     showsPrec d (Writer ft) = showParen (d > app_prec) $
         showString "Writer " . showsPrec (app_prec + 1) ft
@@ -289,6 +286,7 @@ data HasIf :: Bool -> Type -> Type where
     Has    :: a -> HasIf 'True a
     Hasn't :: HasIf 'False a
 
+deriving instance Eq a   => Eq (HasIf b a)
 deriving instance Show a => Show (HasIf b a)
 
 _Has :: Iso' (HasIf 'True a) a
@@ -302,12 +300,12 @@ hasIfMaybe = \case
     Has  x -> Just x
     Hasn't -> Nothing
 
--- _HasMaybe :: forall r a b. SingI r => Prism (HasIf r a) (HasIf r b) a b
--- _HasMaybe = prism (case sing @_ @r of
---                      STrue -> Has
---                      SFalse -> const Hasn't
---                   )
---                   (\case Has x -> Right x; Hasn't -> Left Hasn't)
+_HasIf :: forall r a b. SingI r => Prism (HasIf r a) (HasIf r b) a b
+_HasIf = prism (case sing @_ @r of
+                  STrue -> Has
+                  SFalse -> const Hasn't
+               )
+               (\case Has x -> Right x; Hasn't -> Left Hasn't)
 
 instance (SingI b, Bi.Binary a) => Bi.Binary (HasIf b a) where
     get = case sing @_ @b of
@@ -381,6 +379,22 @@ instance FromJSON WriterOptions where
          <*> (fromMaybe 4 <$> v .: "tab-stop")
          <*> (fromMaybe False <$> (v .: "toc" <|> v .: "table-of-contents"))
 
+instance ToJSON ReaderOptions
+instance ToJSON WriterOptions where
+    toJSON wo = object $ mconcat
+      [ ifNotDef "standalone"        True    (wo ^. woStandalone)
+      , [ "template-path" .= (wo ^. woTemplatePath) ]
+      , [ "data-dir"      .= (wo ^. woDataDir)      ]
+      , ifNotDef "variables"         M.empty (wo ^. woVariables)
+      , ifNotDef "tab-stop"          4       (wo ^. woTabStop)
+      , ifNotDef "table-of-contents" False   (wo ^. woTOC)
+
+      ]
+      where
+        ifNotDef :: (ToJSON a, Eq a) => T.Text -> a -> a -> [(T.Text, Value)]
+        ifNotDef t d x | d == x    = []
+                       | otherwise = [t .= x]
+
 data FormatOptions :: Bool -> Bool -> Type where
     FormatOptions :: { _foFormat     :: Format r w
                      , _foReaderOpts :: HasIf r ReaderOptions
@@ -425,7 +439,15 @@ instance FromJSON (Writer FormatOptions) where
             FormatOptions ft (fromMaybe def ro) (fromMaybe def wo)
         noOpts t = parseJSON t <&> \case
           Writer ft -> Writer (FormatOptions ft def def)
-      
+
+instance ToJSON (Writer FormatOptions) where
+    toJSON (Writer fo)
+      | (fo ^. foReaderOpts == def) && (fo ^. foWriterOpts == def) =
+            toJSON (fo ^. foFormat)
+      | otherwise =
+            let rm = fo ^? foReaderOpts . _HasIf . re (_JSON @Value) . _Object
+                wm = fo ^. foWriterOpts . _Has   . re (_JSON @Value) . _Object
+            in  Object $ fold rm <> wm
 
 instance Show (Writer FormatOptions) where
     showsPrec d (Writer fo) = showParen (d > app_prec) $
@@ -435,14 +457,6 @@ instance Show (Writer FormatOptions) where
 
 fromReaderOptions :: ReaderOptions -> P.ReaderOptions
 fromReaderOptions _ = def
-
--- data FormatOptions :: Bool -> Bool -> Type where
---     FormatOptions :: { _foFormat     :: Format r w
---                      , _foReaderOpts :: HasIf r ReaderOptions
---                      , _foWriterOpts :: HasIf w WriterOptions
---                      }
---                -> FormatOptions r w
---   deriving (Show, Generic)
 
 -- writerOptions :: Format r w -> WriterOptions -> P.WriterOptions
 -- writerOptions _ _ = def
@@ -539,49 +553,6 @@ writerString = \case
     FRTF           -> "rtf"
     FMkWriteOnly f -> writerString f            -- any way to indicate?
 
--- formatString :: Format r w -> String
--- formatString = \case
---     FNative       -> "native"
---     FJSON         -> "json"
---     FMarkdown mt  -> case mt of
---       MDPandoc    -> "markdown"
---       MDStrict    -> "markdown_strict"
---       MDPHP       -> "markdown_phpextra"
---       MDGithub    -> "markdown_github"
---       MDMulti     -> "markdown_mmd"
---       MDCommon    -> "commonmark"
---     FRST          -> "rst"
---     FMediaWiki    -> "mediawiki"
---     FDocBook      -> "docbook"
---     FOPML         -> "opml"
---     FOrg          -> "org"
---     FTextile      -> "textile"
---     FHTML five    -> "html" ++ if five then "5" else ""
---     FLaTeX        -> "latex"
---     FHaddock      -> "haddock"
---     FDocX         -> "docx"
---     FODT          -> "odf"
---     FEPub epv     -> "epub" ++ case epv of P.EPUB2 -> ""; P.EPUB3 -> ""
---     FFictionBook2 -> "fb2"
---     FICML         -> "icml"
---     FSlideShow ss -> case ss of
---       SSS5        -> "s5"
---       SSSlidy     -> "slidy"
---       SSSlideous  -> "slideous"
---       SSDZSlides  -> "dzslides"
---       SSRevealJS  -> "revealjs"
---       SSBeamer    -> "beamer"
---     FOpenDocument -> "opendocument"
---     FContext      -> "context"
---     FTexinfo      -> "texinfo"
---     FMan          -> "man"
---     FPlain        -> "plain"
---     FDokuWiki     -> "dokuwiki"
---     FASCIIDoc     -> "asciidoc"
---     FTEI          -> "tei"
---     FTWiki        -> "twiki"
---     FT2T          -> "t2t"
-
 allFormats :: [SomeFormat]
 allFormats = concat [ all'
                     , someFormat . FMkWriteOnly <$> mapMaybe rw all'
@@ -659,8 +630,10 @@ parseSomeFormat = do
                        ]
     modFlag <- asum [ MP.try $ someFormat . FMkReadOnly  <$ symbol "readonly"
                     , MP.try $ someFormat . FMkReadOnly  <$ symbol "ro"
+                    , MP.try $ someFormat . FMkReadOnly  <$ symbol "?"
                     , MP.try $ someFormat . FMkWriteOnly <$ symbol "writeonly"
                     , MP.try $ someFormat . FMkWriteOnly <$ symbol "wo"
+                    , MP.try $ someFormat . FMkWriteOnly <$ symbol "*"
                     , pure $ someFormat
                     ]
     return $ case baseFormat of
@@ -673,6 +646,7 @@ parseSomeFormat = do
       _ <- MP.try (symbol "markdown") <|> symbol "md"
       asum [ MP.try $ MDStrict <$ symbol "strict"
            , MP.try $ MDPHP    <$ symbol "phpextra"
+           , MP.try $ MDPHP    <$ symbol "phpextras"
            , MP.try $ MDPHP    <$ symbol "php"
            , MP.try $ MDGithub <$ symbol "github"
            , MP.try $ MDGithub <$ symbol "gh"
@@ -693,6 +667,8 @@ parseSomeFormat = do
       , ("json"        , someFormat FJSON                  )
       , ("common"      , someFormat (FMarkdown MDCommon)   )
       , ("commonmark"  , someFormat (FMarkdown MDCommon)   )
+      , ("multimark"   , someFormat (FMarkdown MDMulti)   )
+      , ("multimarkdown", someFormat (FMarkdown MDMulti)   )
       , ("html"        , someFormat (FHTML True)           )
       , ("html4"       , someFormat (FHTML False)          )
       , ("html5"       , someFormat (FHTML True)           )
@@ -755,4 +731,77 @@ instance FromJSON SomeFormat where
       case MP.parse parseSomeFormat "Value" t of
         Left  e  -> fail $ MP.parseErrorPretty e
         Right sf -> return sf
+
+unparseFormat :: Format r w -> T.Text
+unparseFormat = \case
+    FNative       -> "native"
+    FJSON         -> "json"
+    FMarkdown mt  -> case mt of
+      MDPandoc -> "markdown"
+      MDStrict -> "markdown strict"
+      MDPHP    -> "markdown phpextra"
+      MDGithub -> "markdown github"
+      MDMulti  -> "multimarkdown"
+      MDCommon -> "commonmark"
+    FRST          -> "rst"
+    FMediaWiki    -> "mediawiki"
+    FDocBook t    -> "docbook" <> if t then "5" else ""
+    FOPML         -> "opml"
+    FOrg          -> "org"
+    FTextile      -> "textile"
+    FHTML t       -> "html" <> if t then "5" else ""
+    FLaTeX        -> "latex"
+    FHaddock      -> "haddock"
+    FTWiki        -> "twiki"
+    FDocX         -> "docx"
+    FODT          -> "odf"
+    FT2T          -> "t2t"
+    FEPub t       -> "epub" <> case t of P.EPUB2 -> ""; P.EPUB3 -> "e"
+    FFictionBook2 -> "fb2"
+    FICML         -> "icml"
+    FSlideShow ss -> case ss of
+      SSS5       -> "s5"
+      SSSlidy    -> "slidy"
+      SSSlideous -> "slideous"
+      SSDZSlides -> "dzslides"
+      SSRevealJS -> "revealjs"
+      SSBeamer   -> "beamer-latex"
+    FOpenDocument -> "opendocument"
+    FConTeXt      -> "context"
+    FTexinfo      -> "texinfo"
+    FMan          -> "man"
+    FPlain        -> "plain"
+    FDokuWiki     -> "dokuwiki"
+    FZimWiki      -> "zimwiki"
+    FASCIIDoc     -> "asciidoc"
+    FTEI          -> "tei"
+    FPDF t        -> case t of
+      PTLaTeX   -> "pdf"
+      PTBeamer  -> "beamer"
+      PTConTeXt -> "context-pdf"
+      PTHTML5   -> "html5-pdf"
+    FRTF           -> "rtf"
+    FMkWriteOnly t -> unparseFormat t <> "*"
+    FMkReadOnly  t -> unparseFormat t <> "?"
+
+instance ToJSON (Format r w) where
+    toJSON = toJSON . unparseFormat
+
+instance FromJSON (Writer Format) where
+    parseJSON v = do
+      SomeFormat sr sw ft <- parseJSON v
+      case sw of
+        SFalse -> fail $ printf "A writable format is expected, but `%s` is %s.%s"
+                            (unparseFormat ft)
+                            (case sr of STrue  -> "read-only"
+                                        SFalse -> "neither writable nor readable"
+                               :: String
+                            )
+                            (case ft of
+                                 FMkReadOnly ft' -> printf " Did you intend to write `%s`?"
+                                                      (unparseFormat ft')
+                                 _               -> ""
+                               :: String
+                            )
+        STrue  -> withSingI sr $ return (Writer ft)
 

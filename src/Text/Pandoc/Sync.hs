@@ -26,7 +26,7 @@ module Text.Pandoc.Sync (
 -- import           Debug.Trace
 -- import qualified Data.Text           as T
 import           Control.Exception
-import           Control.Lens
+import           Control.Lens hiding    ((.=))
 import           Control.Monad
 import           Data.Aeson
 import           Data.Dependent.Sum
@@ -45,6 +45,7 @@ import           Text.Printf
 import qualified Data.Binary            as Bi
 import qualified Data.Map               as M
 import qualified Data.Set               as S
+import qualified Data.Text              as T
 
 type FileExt = String
 
@@ -58,14 +59,6 @@ instance Hashable DiscoverMode where
       DMSameDir         -> s `hashWithSalt` (0 :: Int)
       DMParallelTree mp -> s `hashWithSalt` (1 :: Int)
                              `hashWithSalt` M.toList mp
-
--- instance FromJSON DiscoverMode where
---     parseJSON = withObject "DiscoverMode" $ \v -> do
---       mode <- v .: "mode"
---       case mode :: T.Text of
---         "same-dir" -> pure DMSameDir
---         "parallel" -> DMParallelTree <$> v .: "format-tree"
-
 
 data FileDiscover = FD { _fdBaseDir      :: FilePath
                        , _fdFileName     :: String
@@ -112,6 +105,22 @@ instance FromJSON SyncConfig where
                   fts
                   (fromMaybe "" rt)
                   (fromMaybe ".pandoc-sync-cache" cache)
+
+instance ToJSON SyncConfig where
+    toJSON sc = object $ mconcat
+        [ case sc ^. scDiscoverMode of
+            DMSameDir        -> [ "parallel-mode" .= False ]
+            DMParallelTree t -> [ "parallel-mode" .= True
+                                , "format-tree"   .= t
+                                ]
+        , [ "formats" .= (sc ^. scFormats) ]
+        , ifNotDef "root"  ""                  (sc ^. scRoot)
+        , ifNotDef "cache" "pandoc-sync-cache" (sc ^. scCache)
+        ]
+      where
+        ifNotDef :: (ToJSON a, Eq a) => T.Text -> a -> a -> [(T.Text, Value)]
+        ifNotDef t d x | d == x    = []
+                       | otherwise = [t .= x]
 
 data Sync = Sync { _syncFiles    :: M.Map FileDiscover SyncFile
                  , _syncConfHash :: Int

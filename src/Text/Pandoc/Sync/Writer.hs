@@ -55,7 +55,7 @@ writePandoc
     -> FilePath
     -> IO ()
 writePandoc dry ft pd bag wo fp = do
-    wo' <- mkWriterOptions ft wo bag
+    wo' <- mkWriterOptions ft fp wo bag
     case formatWriter ft of
       P.IOStringWriter f     -> writeDry $
         UTF8.writeFile fp                =<< f wo' pd
@@ -94,10 +94,11 @@ writePandoc dry ft pd bag wo fp = do
 mkWriterOptions
     :: forall r. SingI r
     => Format r 'True
+    -> FilePath
     -> WriterOptions
     -> P.MediaBag
     -> IO P.WriterOptions
-mkWriterOptions ft wo bag = do
+mkWriterOptions ft fp wo bag = do
     datadir <- runMaybeT $
           MaybeT (return $ wo ^. woDataDir)
       <|> MaybeT (catch @SomeException
@@ -132,10 +133,13 @@ mkWriterOptions ft wo bag = do
                   $ dropWhile (not . (dzline `isPrefixOf`))
                   $ lines dztempl
        return ("dzslides-core", dzcore)
+
     let variables = concat [ maybeToList mathVar
                            , maybeToList dzVar
                            , M.toList (wo ^. woVariables)
                            ]
+
+    exists <- doesFileExist fp
 
     return def { P.writerTemplate        = templ
                , P.writerVariables       = variables
@@ -146,6 +150,8 @@ mkWriterOptions ft wo bag = do
                , P.writerBeamer          = False        -- it's false in the actual thing
                -- , P.writerBeamer          = has (asReader SFalse . _FSlideShow . _SSBeamer) ft
                , P.writerMediaBag        = bag
+               , P.writerReferenceODT    = wo ^. woReferenceODT  <|> (fp <$ guard exists)
+               , P.writerReferenceDocx   = wo ^. woReferenceDocX <|> (fp <$ guard exists)
                }
 
   where
@@ -181,8 +187,6 @@ mkWriterOptions ft wo bag = do
 --                             writerEpubFonts        = epubFonts,
 --                             writerEpubChapterLevel = epubChapterLevel,
 --                             writerTOCDepth         = epubTOCDepth,
---                             writerReferenceODT     = referenceODT,
---                             writerReferenceDocx    = referenceDocx,
 --                             writerVerbose          = verbose,
 --                             writerLaTeXArgs        = latexEngineArgs
 --                           }

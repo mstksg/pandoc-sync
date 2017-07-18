@@ -158,9 +158,11 @@ instance (SingI r, SingI w) => Hashable (Format r w) where
     hashWithSalt s fm = s `hashWithSalt` Bi.encode fm
 
 class AsFormat ft where
-    _FHTML      :: Prism' (ft 'True 'True ) Bool
+    _FHTML      :: Prism' (ft 'True  'True) Bool
     _FSlideShow :: Prism' (ft 'False 'True) SlideShowType
     _FPDF       :: Prism' (ft 'False 'True) PDFType
+    _FODT       :: Prism' (ft 'True  'True) ()
+    _FDocX      :: Prism' (ft 'True  'True) ()
 
 instance AsFormat Format where
     _FHTML = prism FHTML (\case FHTML t -> Right t
@@ -172,6 +174,12 @@ instance AsFormat Format where
     _FPDF = prism FPDF (\case FPDF t -> Right t
                               ft     -> Left ft
                        )
+    _FODT = prism (const FODT) (\case FODT -> Right ()
+                                      ft   -> Left ft
+                               )
+    _FDocX = prism (const FDocX) (\case FDocX -> Right ()
+                                        ft    -> Left ft
+                                 )
 
 asReader :: forall r' r w. SingI r' => Sing r -> Traversal' (Format r' w) (Format r w)
 asReader sr f = case sing @_ @r' Si.%~ sr of
@@ -341,13 +349,15 @@ deriving instance Ord P.HTMLMathMethod
 instance Bi.Binary P.HTMLMathMethod
 instance Hashable P.HTMLMathMethod
 
-data WriterOptions = WO { _woStandalone   :: Bool
-                        , _woTemplatePath :: Maybe FilePath
-                        , _woDataDir      :: Maybe FilePath
-                        , _woMathMethod   :: P.HTMLMathMethod
-                        , _woVariables    :: M.Map String String
-                        , _woTabStop      :: Int
-                        , _woTOC          :: Bool
+data WriterOptions = WO { _woStandalone    :: Bool
+                        , _woTemplatePath  :: Maybe FilePath
+                        , _woDataDir       :: Maybe FilePath
+                        , _woMathMethod    :: P.HTMLMathMethod
+                        , _woVariables     :: M.Map String String
+                        , _woTabStop       :: Int
+                        , _woTOC           :: Bool
+                        , _woReferenceODT  :: Maybe FilePath
+                        , _woReferenceDocX :: Maybe FilePath
                         }
     deriving (Show, Eq, Ord, Generic)
 
@@ -360,7 +370,7 @@ instance Default ReaderOptions where
     def = RO
 
 instance Default WriterOptions where
-    def = WO True Nothing Nothing P.PlainMath M.empty 4 False
+    def = WO True Nothing Nothing P.PlainMath M.empty 4 False Nothing Nothing
 
 instance Hashable ReaderOptions
 instance Hashable WriterOptions where
@@ -370,6 +380,8 @@ instance Hashable WriterOptions where
                           `hashWithSalt` M.toList (wo ^. woVariables)
                           `hashWithSalt` wo ^. woTabStop
                           `hashWithSalt` wo ^. woTOC
+                          `hashWithSalt` wo ^. woReferenceODT
+                          `hashWithSalt` wo ^. woReferenceDocX
 
 instance FromJSON ReaderOptions
 instance FromJSON WriterOptions where
@@ -381,6 +393,8 @@ instance FromJSON WriterOptions where
          <*> (fromMaybe M.empty <$> v .:? "variables")
          <*> (fromMaybe 4 <$> v .: "tab-stop")
          <*> (fromMaybe False <$> (v .: "toc" <|> v .: "table-of-contents"))
+         <*> (v .:? "reference-odt")
+         <*> (v .:? "reference-docx")
 
 instance ToJSON ReaderOptions
 instance ToJSON WriterOptions where
@@ -391,7 +405,8 @@ instance ToJSON WriterOptions where
       , ifNotDef "variables"         M.empty (wo ^. woVariables)
       , ifNotDef "tab-stop"          4       (wo ^. woTabStop)
       , ifNotDef "table-of-contents" False   (wo ^. woTOC)
-
+      , ifNotDef "reference-odt"     Nothing (wo ^. woReferenceODT)
+      , ifNotDef "reference-docx"    Nothing (wo ^. woReferenceDocX)
       ]
       where
         ifNotDef :: (ToJSON a, Eq a) => T.Text -> a -> a -> [(T.Text, Value)]

@@ -15,6 +15,7 @@ import           Options.Applicative
 import           System.Directory
 import           System.Exit
 import           System.FSNotify
+import           System.FilePath
 import           System.IO.Error
 import           System.Log.Logger
 import           Text.Pandoc.Sync
@@ -125,10 +126,13 @@ main = do
             )
         withSync_ sc $ runSync dry oConflictMode
       CWatch -> withManager $ \mgr -> do
+        when (oLogLevel >= NOTICE) $
+          updateGlobalLogger "pandoc-sync.negative" (setLevel WARNING)
         sc <- loadConfig oConfigFile
         new <- newMVar True
         debugM "pandoc-sync" $ printf "Watching for file changes in directory %s" (sc ^. scRoot)
-        _ <- watchTree mgr (sc ^. scRoot) (const True) $ \e -> do
+        let isNotCache fp = takeFileName fp /= takeFileName (sc ^. scCache)
+        _ <- watchTree mgr (sc ^. scRoot) (isNotCache . eventPath) $ \e -> do
           infoM "pandoc-sync" "Change detected!"
           debugM "pandoc-sync" $ show e
           modifyMVar_ new $ \_ -> return True
@@ -171,5 +175,5 @@ sampleConfig =
           ,("html", Writer $ FormatOptions (FHTML True              ) def def)
           ]
        )
-       "files"
+       "./"
        ".pandoc-sync-cache"

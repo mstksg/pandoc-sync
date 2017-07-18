@@ -303,8 +303,10 @@ discoverAll wfs rt = do
     go :: FilePath -> IO (M.Map FileDiscover (S.Set FileExt))
     go fp0 = do
         debugM "pandoc-sync" $ printf "Searching directory %s" fp0
-        fmap (M.unionsWith (<>)) . mapM process =<< listDirectory fp0
+        fmap (M.unionsWith (<>)) . mapM process . filter unHidden =<< listDirectory fp0
       where
+        -- ignoring hidden files.
+        unHidden p = not $ "." `isPrefixOf` takeFileName p
         process :: FilePath -> IO (M.Map FileDiscover (S.Set FileExt))
         process fp1 = do
           let fullPath = fp0 </> fp1

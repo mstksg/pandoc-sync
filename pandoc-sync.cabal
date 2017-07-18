@@ -57,6 +57,7 @@ executable pandoc-sync
                      , containers
                      , data-default
                      , directory
+                     , filepath
                      , fsnotify
                      , hslogger
                      , lens

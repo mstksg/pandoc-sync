@@ -191,7 +191,7 @@ runSyncFile dry cm s0 = do
         return Nothing
     case selected of
       Nothing -> do
-        noticeM "pandoc-sync" "No updates to handle"
+        noticeM "pandoc-sync.negative" "No updates to handle"
         case s0 ^? sfLastUpdate . _Just . to (\(_,pd,mb) -> (pd, mb)) of
           Nothing -> return s0
           Just (pd, mb) -> do

@@ -2,31 +2,35 @@
 {-# LANGUAGE TypeApplications #-}
 
 import           Control.Applicative
+import           Control.Exception
 import           Control.Lens
 import           Control.Monad
 import           Data.Default
 import           Data.Foldable
 import           Data.Monoid
-import           Data.Yaml           (decodeFileEither, encode, prettyPrintParseException)
+import           Data.Yaml           (decodeFileEither, encode, prettyPrintParseException, encodeFile)
 import           Options.Applicative
 import           System.Directory
+import           System.Exit
+import           System.IO.Error
 import           System.Log.Logger
 import           Text.Pandoc.Sync
+import           Text.Printf
+import qualified Data.Map            as M
 import qualified Data.Text           as T
 import qualified Data.Text.Encoding  as T
 
--- data Command = CGenConfig
---              | CSync
---              | CClean
+data Command = CGenConfig  { _force  :: Bool }
+             | CSync       { _dryRun :: Bool }
+             | CClean
 
 data Opts = O { oConfigFile   :: FilePath
               , oLogLevel     :: Priority
-              , oClean        :: Bool
-              , oDryRun       :: Bool
               , oConflictMode :: ConflictMode
+              , oCommand      :: Command
               }
 
-parseOpts :: Parser Opts
+parseOpts :: Parser (Command -> Opts)
 parseOpts =
     O <$> strOption ( long "config"
                    <> short 'c'
@@ -39,13 +43,6 @@ parseOpts =
                , flagOf WARNING "silent"  (Just 's') "Silent non-error output"
                , pure NOTICE
                ]
-      <*> switch   ( long "clean"
-                  <> help "Clean the cache"
-                   )
-      <*> switch   ( long "dry-run"
-                  <> short 'd'
-                  <> help "Do not write any files, and output what would be written to"
-                   )
       <*> asum [ flagOf CMInteractive "interactive" (Just 'i') "Solve conflicts interactively"
                , flagOf CMOldest      "oldest"      (Just 'o') "Chose oldest file to resolve conflict"
                , flagOf CMIgnore      "ignore-conflicts" Nothing "Ignore all conflicts"
@@ -55,24 +52,97 @@ parseOpts =
     flagOf :: a -> String -> Maybe Char -> String -> Parser a
     flagOf x n s h = flag' x (long n <> maybe mempty short s <> help h )
 
+parseCommand :: Parser Command
+parseCommand = subparser . mconcat $
+    [ command "sync"       $
+        info ((CSync <$> switch
+                ( long "dry-run"
+               <> short 'd'
+               <> help "Do not write any files, and output what would be written to"
+                )
+              ) <**> helper
+             )
+             (progDesc "Update files to maintain synchronization")
+    , command "clean"      $
+        info (pure CClean)
+             (progDesc "Clean cache and reset state")
+    , command "gen-config" $
+        info ((CGenConfig . not <$> switch
+                ( long "force"
+               <> short 'f'
+               <> help "Overwrite existing config file if present."
+                )
+              ) <**> helper
+             )
+             (progDesc "Generate sample configuration")
+    ]
+
 main :: IO ()
 main = do
-    O{..} <- execParser $ info (parseOpts <**> helper)
-                            ( fullDesc
-                           <> progDesc "Keep files of different formats in sync using pandoc"
-                           <> header "pandoc-sync - Sync different formats"
-                            )
+    O{..} <- execParser $ info ((parseOpts <*> parseCommand) <**> helper)
+        ( fullDesc
+       <> progDesc "Keep files of different formats in sync using pandoc"
+       <> header "pandoc-sync - Sync different formats"
+        )
     updateGlobalLogger "pandoc-sync" (setLevel oLogLevel)
-    sce <- decodeFileEither oConfigFile
-    case sce of
-      Left  e  -> do
-        errorM "pandoc-sync" "Could not parse log file:"
-        errorM "pandoc-sync" (prettyPrintParseException e)
-      Right sc -> do
-        debugM "pandoc-sync" $ "Loaded configuration file at " ++ oConfigFile
-        debugM "pandoc-sync" . T.unpack . T.decodeUtf8 $ encode sc
-        when oClean $ do
-          noticeM "pandoc-sync" $ "Resetting cache at " ++ (sc ^. scCache)
-          removeFile (sc ^. scCache)
-        withSync_ sc $ runSync oDryRun oConflictMode
 
+    case oCommand of
+      CClean -> do
+        sc <- loadConfig oConfigFile
+        noticeM "pandoc-sync" $ "Resetting cache at " ++ (sc ^. scCache)
+        catch (removeFile (sc ^. scCache)) $ \e ->
+          unless (isDoesNotExistError e) $ throw e
+      CGenConfig force -> do
+        exists <- doesFileExist oConfigFile
+        case (exists, force) of
+          (True , False) ->
+            errorM "pandoc-sync" $
+              printf "Could not generate sample configuration at %s (file already exists)"
+                     oConfigFile
+          (True , True) -> do
+            encodeFile oConfigFile sampleConfig
+            warningM "pandoc-sync" $
+              printf "Overwriting file at %s with sample configuration file (--force applied)"
+                     oConfigFile
+          (False, _   ) -> do
+            encodeFile oConfigFile sampleConfig
+            noticeM "pandoc-sync" $
+              printf "Generated sample config file to %s" oConfigFile
+      CSync dry -> do
+        sc <- loadConfig oConfigFile
+        debugM "pandoc-sync" $
+          printf "Running sync command%s%s"
+            (if dry then " (dry run)" else "")
+            (case oConflictMode of CMInteractive -> " (interactive)"
+                                   _             -> ""
+            )
+        withSync_ sc $ runSync dry oConflictMode
+  where
+    loadConfig :: FilePath -> IO SyncConfig
+    loadConfig fp = do
+      sce <- decodeFileEither fp
+      case sce of
+        Left e -> do
+          errorM "pandoc-sync" "Could not parse log file:"
+          errorM "pandoc-sync" (prettyPrintParseException e)
+          exitFailure
+        Right sc -> do
+          debugM "pandoc-sync" $ printf "Loaded configuration file at %s" fp
+          debugM "pandoc-sync" . T.unpack . T.decodeUtf8 $ encode sc
+          return sc
+
+sampleConfig :: SyncConfig
+sampleConfig =
+    SC (DMParallelTree $ M.fromList [("src","md")
+                                    ,("out-pdf","pdf")
+                                    ,("out-html","html")
+                                    ]
+       )
+       (M.fromList
+          [("md"  , Writer $ FormatOptions (FMarkdown MDPandoc False) def def)
+          ,("pdf" , Writer $ FormatOptions (FPDF PTLaTeX            ) def def)
+          ,("html", Writer $ FormatOptions (FHTML True              ) def def)
+          ]
+       )
+       "files"
+       ".pandoc-sync-cache"

@@ -52,16 +52,17 @@ library
 executable pandoc-sync
   hs-source-dirs:      app
   main-is:             Sync.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   build-depends:       base
+                     , containers
                      , data-default
                      , directory
                      , hslogger
                      , lens
                      , optparse-applicative
                      , pandoc-sync
-                     , yaml
                      , text
+                     , yaml
   default-language:    Haskell2010
 
 -- test-suite pandoc-sync-test

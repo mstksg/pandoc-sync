@@ -192,7 +192,7 @@ initSync sc = do
         let fullRt = sc ^. scRoot </> rt
         in  do res <- over (traverse . sfSourcesSinks . mapKeys) (fullRt </>)
                     . M.mapWithKey mkSF
-                    . over (mapKeys . fdBaseDir) (fromJust' (stripPrefix fullRt))
+                    . over (mapKeys . fdBaseDir) (fromJust . stripPrefix fullRt)
                     <$> discoverAll (M.singleton ex wf) fullRt
                return res
     fillParallel :: M.Map FilePath FileExt -> FileDiscover -> SyncFile -> SyncFile
@@ -218,9 +218,11 @@ initSync sc = do
     mkSF fd exs = emptySyncFile &
         sfSourcesSinks .~ M.mapKeys mkFileName extMap
       where
-        extMap = M.intersectionWith (const go)
-                                    (M.fromSet (const ()) exs)
-                                    (sc ^. scFormats)
+        extMap :: M.Map FileExt (DSum Sing SyncFileData)
+        extMap = flip M.fromSet exs $ \ex ->
+          let d = case inferWriter ex of
+                    Writer ft -> Writer $ FormatOptions ft def def
+          in  go $ M.findWithDefault d ex (sc ^. scFormats)
         mkFileName :: FileExt -> FilePath
         mkFileName fe = (fd ^. fdBaseDir) </> (fd ^. fdFileName) -<.> fe
         go :: Writer FormatOptions -> DSum Sing SyncFileData
@@ -234,10 +236,11 @@ initSync sc = do
     mergeSF s1 s2 = s1 & sfSourcesSinks %~ (`M.union` (s2 ^. sfSourcesSinks))
 
 
-fromJust' :: Show a => (a -> Maybe b) -> a -> b
-fromJust' f x = case f x of
-                  Nothing -> error $ "fromJust called from applying " ++ show x
-                  Just y  -> y
+-- fromJust' :: Show a => (a -> Maybe b) -> a -> b
+-- fromJust' f x = fromMaybe (error $ printf "fromJust call") $ f x
+--   where
+--                   Nothing -> error $ "fromJust called from applying " ++ show x
+--                   Just y  -> y
 
 addSync :: Sync -> Sync -> Sync
 addSync s0 s1 = s0 & syncFiles %~ M.unionWith go (s1 ^. syncFiles)
@@ -253,8 +256,6 @@ runSync dry cm = itraverseOf (syncFiles . itraversed) $ \fd sf -> do
     debugM "pandoc-sync" $ printf "Syncing file %s"
       (fd ^. fdBaseDir </> fd ^. fdFileName)
     runSyncFile dry cm sf
-    -- debugM
-    -- runSyncFile
 
 loadSync :: SyncConfig -> IO Sync
 loadSync sc = do

@@ -32,6 +32,7 @@ import           System.FilePath
 import           System.IO.Error
 import           System.Log.Logger
 import           Text.Pandoc.Sync.Format
+import           Text.Printf
 import qualified Data.ByteString.Lazy         as B
 import qualified Data.Map                     as M
 import qualified Data.Text.Lazy               as TL
@@ -46,20 +47,21 @@ import qualified Text.Pandoc.UTF8             as UTF8
 
 writePandoc
     :: SingI r
-    => Format r 'True
+    => Bool
+    -> Format r 'True
     -> P.Pandoc
     -> P.MediaBag
     -> WriterOptions
     -> FilePath
     -> IO ()
-writePandoc ft pd bag wo fp = do
+writePandoc dry ft pd bag wo fp = do
     wo' <- mkWriterOptions ft wo bag
     case formatWriter ft of
-      P.IOStringWriter f ->
+      P.IOStringWriter f     -> writeDry $
         UTF8.writeFile fp                =<< f wo' pd
-      P.IOByteStringWriter f ->
+      P.IOByteStringWriter f -> writeDry $
         B.writeFile (UTF8.encodePath fp) =<< f wo' pd
-      P.PureStringWriter f -> case ft of
+      P.PureStringWriter f   -> case ft of
         FPDF pdft -> do
           let eng = pdfEngine pdft
           -- TODO: handle lack of prog?
@@ -68,16 +70,26 @@ writePandoc ft pd bag wo fp = do
           res <- P.makePDF eng f wo' pd
           -- TODO: handle bad res?
           case res of
-            Right res' -> B.writeFile (UTF8.encodePath fp) res'
+            Right res' -> writeDry $
+              B.writeFile (UTF8.encodePath fp) res'
             Left  err  -> do
               errorM "pandoc-sync" "Failed to write PDF file"
               errorM "pandoc-sync" $ TL.unpack (TL.decodeUtf8 err)
-        _ -> do
+        _                    -> writeDry $ do
             let res = f wo' pd
             out <- if htmlFormat ft
                then P.makeSelfContained wo' res
                else return res
             UTF8.writeFile fp out
+  where
+    writeDry :: IO () -> IO ()
+    writeDry w
+      | dry       =
+          noticeM "pandoc-sync" $ printf "Write to %s suppressed because of --dry-run" fp
+      | otherwise = do
+          infoM "pandoc-sync" $ printf "Writing to %s" fp
+          w
+
 
 mkWriterOptions
     :: forall r. SingI r

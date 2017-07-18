@@ -15,10 +15,14 @@ import           Text.Pandoc.Sync
 import qualified Data.Text           as T
 import qualified Data.Text.Encoding  as T
 
+-- data Command = CGenConfig
+--              | CSync
+--              | CClean
+
 data Opts = O { oConfigFile   :: FilePath
               , oLogLevel     :: Priority
               , oClean        :: Bool
-              -- _oDry
+              , oDryRun       :: Bool
               , oConflictMode :: ConflictMode
               }
 
@@ -37,6 +41,10 @@ parseOpts =
                ]
       <*> switch   ( long "clean"
                   <> help "Clean the cache"
+                   )
+      <*> switch   ( long "dry-run"
+                  <> short 'd'
+                  <> help "Do not write any files, and output what would be written to"
                    )
       <*> asum [ flagOf CMInteractive "interactive" (Just 'i') "Solve conflicts interactively"
                , flagOf CMOldest      "oldest"      (Just 'o') "Chose oldest file to resolve conflict"
@@ -66,5 +74,5 @@ main = do
         when oClean $ do
           noticeM "pandoc-sync" $ "Resetting cache at " ++ (sc ^. scCache)
           removeFile (sc ^. scCache)
-        withSync_ sc $ runSync oConflictMode
+        withSync_ sc $ runSync oDryRun oConflictMode
 

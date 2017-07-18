@@ -248,12 +248,11 @@ addSync s0 s1 = s0 & syncFiles %~ M.unionWith go (s1 ^. syncFiles)
 discoverSync :: SyncConfig -> Sync -> IO Sync
 discoverSync sc s0 = addSync s0 <$> initSync sc
 
-runSync :: ConflictMode -> Sync -> IO Sync
-runSync cm = itraverseOf (syncFiles . itraversed) $ \fd sf -> do
+runSync :: Bool -> ConflictMode -> Sync -> IO Sync
+runSync dry cm = itraverseOf (syncFiles . itraversed) $ \fd sf -> do
     debugM "pandoc-sync" $ printf "Syncing file %s"
       (fd ^. fdBaseDir </> fd ^. fdFileName)
-    runSyncFile cm sf
-
+    runSyncFile dry cm sf
     -- debugM
     -- runSyncFile
 

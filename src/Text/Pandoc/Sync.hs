@@ -29,7 +29,9 @@ import           Control.Exception
 import           Control.Lens hiding    ((.=))
 import           Control.Monad
 import           Data.Aeson
+import           Data.Default
 import           Data.Dependent.Sum
+import           Data.Foldable
 import           Data.Hashable
 import           Data.List
 import           Data.Maybe
@@ -88,23 +90,35 @@ instance Hashable SyncConfig where
 
 instance FromJSON SyncConfig where
     parseJSON = withObject "SyncConfig" $ \v -> do
-      pmode <- v .:? "parallel-mode"
-      ftree <- v .:? "format-tree"
-      dm <- case pmode of
-        Just True -> case ftree of
-          Just t  -> return $ DMParallelTree t
-          Nothing -> fail "Parallel mode indicated, but format-tree required."
-        Just False -> return DMSameDir
-        Nothing -> case ftree of
-          Just t  -> return $ DMParallelTree t
-          Nothing -> return DMSameDir
-      fts   <- v .: "formats"
-      rt    <- v .:? "root"
-      cache <- v .:? "cache"
-      return $ SC dm
-                  fts
-                  (fromMaybe "" rt)
-                  (fromMaybe ".pandoc-sync-cache" cache)
+        pmode <- v .:? "parallel-mode"
+        ftree <- v .:? "format-tree"
+        dm <- case pmode of
+          Just True -> case ftree of
+            Just t  -> return $ DMParallelTree t
+            Nothing -> fail "Parallel mode indicated, but format-tree required."
+          Just False -> return DMSameDir
+          Nothing -> case ftree of
+            Just t  -> return $ DMParallelTree t
+            Nothing -> return DMSameDir
+        fts   <- asum [ Left  <$> v .: "formats"
+                      , Right <$> v .: "formats"
+                      , fail "List of formats to discover required."
+                      ]
+        rt    <- v .:? "root"
+        cache <- v .:? "cache"
+        return $ SC dm
+                    (mkFormats fts)
+                    (fromMaybe "" rt)
+                    (fromMaybe ".pandoc-sync-cache" cache)
+      where
+        mkFormats
+            :: Either (S.Set FileExt) (M.Map FileExt (Writer FormatOptions))
+            -> M.Map FileExt (Writer FormatOptions)
+        mkFormats (Left  s) = flip M.fromSet s $ \e ->
+            case inferWriter e of
+              Writer ft -> Writer (FormatOptions ft def def)
+        mkFormats (Right m) = m
+    
 
 instance ToJSON SyncConfig where
     toJSON sc = object $ mconcat

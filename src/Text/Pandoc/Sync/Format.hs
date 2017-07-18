@@ -41,12 +41,14 @@ module Text.Pandoc.Sync.Format (
   , hasIfMaybe
   , allFormats
   , allWriters
+  , inferWriter
   ) where
 
 import           Control.Applicative
 import           Control.Lens hiding          ((.=))
 import           Data.Aeson
 import           Data.Aeson.Lens
+import           Data.Char
 import           Data.Default
 import           Data.Foldable
 import           Data.Hashable
@@ -102,6 +104,7 @@ data Format :: Bool -> Bool -> Type where
     FNative       :: Format 'True  'True
     FJSON         :: Format 'True  'True
     FMarkdown     :: MarkdownType
+                  -> Bool           -- LHS
                   -> Format 'True  'True
     FRST          :: Format 'True  'True
     FMediaWiki    :: Format 'True  'True
@@ -210,7 +213,7 @@ instance Bi.Binary SomeFormat where
       where
         ftmap = IM.fromList [(0, return $ someFormat FNative          )
                             ,(1, return $ someFormat FJSON            )
-                            ,(2, someFormat . FMarkdown <$> Bi.get    )
+                            ,(2, someFormat <$> (FMarkdown <$> Bi.get <*> Bi.get))
                             ,(3, return $ someFormat FRST             )
                             ,(4, return $ someFormat FMediaWiki       )
                             ,(5, someFormat . FDocBook <$> Bi.get     )
@@ -245,7 +248,7 @@ instance Bi.Binary SomeFormat where
     put (SomeFormat _ _ ft) = case ft of
       FNative        -> Bi.put @Int 0
       FJSON          -> Bi.put @Int 1
-      FMarkdown mt   -> Bi.put @Int 2 *> Bi.put mt
+      FMarkdown mt l -> Bi.put @Int 2 *> Bi.put mt *> Bi.put l
       FRST           -> Bi.put @Int 3
       FMediaWiki     -> Bi.put @Int 4
       FDocBook v     -> Bi.put @Int 5 *> Bi.put v
@@ -484,7 +487,7 @@ readerString :: Format 'True w -> String
 readerString = \case
     FNative       -> "native"
     FJSON         -> "json"
-    FMarkdown mt  -> case mt of
+    FMarkdown mt _ -> case mt of
       MDPandoc    -> "markdown"
       MDStrict    -> "markdown_strict"
       MDPHP       -> "markdown_phpextra"
@@ -511,7 +514,7 @@ writerString :: Format r 'True -> String
 writerString = \case
     FNative        -> "native"
     FJSON          -> "json"
-    FMarkdown mt   -> case mt of
+    FMarkdown mt _ -> case mt of
       MDPandoc     -> "markdown"
       MDStrict     -> "markdown_strict"
       MDPHP        -> "markdown_phpextra"
@@ -563,7 +566,7 @@ allFormats = concat [ all'
       [ [ someFormat FNative
         , someFormat FJSON
         ]
-      , someFormat . FMarkdown <$> [minBound .. maxBound]
+      , someFormat <$> (FMarkdown <$> [minBound .. maxBound] <*> [False, True])
       , [ someFormat FRST
         , someFormat FMediaWiki
         ]
@@ -626,8 +629,17 @@ filterSomeFormat sr sw (SomeFormat sr' sw' ft) = do
 parseSomeFormat :: MP.Parser SomeFormat
 parseSomeFormat = do
     baseFormat <- asum [ MP.try singleWord
-                       , someFormat . FMarkdown <$> MP.try markdown
+                       , someFormat . ($ False) . FMarkdown <$> MP.try markdown
                        ]
+    lhs     <- asum [ MP.try $ True <$ symbol "lhs"
+                    , MP.try $ True <$ symbol "literate"
+                    , pure False
+                    ]
+    let lhsFormat = case baseFormat of
+          SomeFormat sr sw ft -> SomeFormat sr sw $
+            case ft of
+              FMarkdown t l -> FMarkdown t (l || lhs)
+              _             -> ft
     modFlag <- asum [ MP.try $ someFormat . FMkReadOnly  <$ symbol "readonly"
                     , MP.try $ someFormat . FMkReadOnly  <$ symbol "ro"
                     , MP.try $ someFormat . FMkReadOnly  <$ symbol "?"
@@ -636,7 +648,7 @@ parseSomeFormat = do
                     , MP.try $ someFormat . FMkWriteOnly <$ symbol "*"
                     , pure $ someFormat
                     ]
-    return $ case baseFormat of
+    return $ case lhsFormat of
        SomeFormat STrue STrue ft -> modFlag ft
        SomeFormat sr    sw    ft -> SomeFormat sr sw ft
   where
@@ -665,10 +677,10 @@ parseSomeFormat = do
       [ ("native"      , someFormat FNative                )
       , ("haskell"     , someFormat FNative                )
       , ("json"        , someFormat FJSON                  )
-      , ("common"      , someFormat (FMarkdown MDCommon)   )
-      , ("commonmark"  , someFormat (FMarkdown MDCommon)   )
-      , ("multimark"   , someFormat (FMarkdown MDMulti)   )
-      , ("multimarkdown", someFormat (FMarkdown MDMulti)   )
+      , ("common"      , someFormat (FMarkdown MDCommon False))
+      , ("commonmark"  , someFormat (FMarkdown MDCommon False)   )
+      , ("multimark"   , someFormat (FMarkdown MDMulti False)   )
+      , ("multimarkdown", someFormat (FMarkdown MDMulti False)   )
       , ("html"        , someFormat (FHTML True)           )
       , ("html4"       , someFormat (FHTML False)          )
       , ("html5"       , someFormat (FHTML True)           )
@@ -678,7 +690,9 @@ parseSomeFormat = do
       , ("epub2"       , someFormat (FEPub P.EPUB2)        )
       , ("epub3"       , someFormat (FEPub P.EPUB3)        )
       , ("docbook"     , someFormat (FDocBook False)       )
+      , ("db"          , someFormat (FDocBook False)       )
       , ("docbook5"    , someFormat (FDocBook True)        )
+      , ("db5"         , someFormat (FDocBook False)       )
       , ("rst"         , someFormat FRST                   )
       , ("mediawiki"   , someFormat FMediaWiki             )
       , ("opml"        , someFormat FOPML                  )
@@ -704,6 +718,7 @@ parseSomeFormat = do
       , ("context"     , someFormat FConTeXt               )
       , ("context-pdf" , someFormat (FPDF PTConTeXt)       )
       , ("texinfo"     , someFormat FTexinfo               )
+      , ("texi"        , someFormat FTexinfo               )
       , ("man"         , someFormat FMan                   )
       , ("plain"       , someFormat FPlain                 )
       , ("dokuwiki"    , someFormat FDokuWiki              )
@@ -711,6 +726,7 @@ parseSomeFormat = do
       , ("zimwiki"     , someFormat FZimWiki               )
       , ("zim"         , someFormat FZimWiki               )
       , ("asciidoc"    , someFormat FASCIIDoc              )
+      , ("adoc"        , someFormat FASCIIDoc              )
       , ("tei"         , someFormat FTEI                   )
       , ("rtf"         , someFormat FRTF                   )
       , ("s5"          , someFormat (FSlideShow SSS5)      )
@@ -736,7 +752,7 @@ unparseFormat :: Format r w -> T.Text
 unparseFormat = \case
     FNative       -> "native"
     FJSON         -> "json"
-    FMarkdown mt  -> case mt of
+    FMarkdown mt t -> (if t then id else (<> " lhs")) $ case mt of
       MDPandoc -> "markdown"
       MDStrict -> "markdown strict"
       MDPHP    -> "markdown phpextra"
@@ -805,3 +821,43 @@ instance FromJSON (Writer Format) where
                             )
         STrue  -> withSingI sr $ return (Writer ft)
 
+inferWriter :: String -> Writer Format
+inferWriter ext = case map toLower ext of
+    ""         -> Writer $ FMarkdown MDPandoc False
+    "tex"      -> Writer $ FLaTeX
+    "latex"    -> Writer $ FLaTeX
+    "ltx"      -> Writer $ FLaTeX
+    "context"  -> Writer $ FConTeXt
+    "ctx"      -> Writer $ FConTeXt
+    "rtf"      -> Writer FRTF
+    "rst"      -> Writer FRST
+    "s5"       -> Writer $ FSlideShow SSS5
+    "native"   -> Writer FNative
+    "json"     -> Writer FJSON
+    "txt"      -> Writer $ FMarkdown MDPandoc False
+    "text"     -> Writer $ FMarkdown MDPandoc False
+    "md"       -> Writer $ FMarkdown MDPandoc False
+    "markdown" -> Writer $ FMarkdown MDPandoc False
+    "textile"  -> Writer $ FTextile
+    "lhs"      -> Writer $ FMarkdown MDPandoc True
+    "texi"     -> Writer FTexinfo
+    "texinfo"  -> Writer FTexinfo
+    "db"       -> Writer $ FDocBook False
+    "db5"      -> Writer $ FDocBook True
+    "odt"      -> Writer FODT
+    "docx"     -> Writer FDocX
+    "epub"     -> Writer $ FEPub P.EPUB2
+    "epub2"    -> Writer $ FEPub P.EPUB2
+    "epub3"    -> Writer $ FEPub P.EPUB3
+    "org"      -> Writer FOrg
+    "asciidoc" -> Writer FASCIIDoc
+    "adoc"     -> Writer FASCIIDoc
+    "pdf"      -> Writer $ FPDF PTLaTeX
+    "fb2"      -> Writer FFictionBook2
+    "opml"     -> Writer FOPML
+    "icml"     -> Writer FICML
+    "tei.xml"  -> Writer FTEI
+    "tei"      -> Writer FTEI
+    [y] | y `elem` ['1'..'9'] -> Writer FMan
+    "html5"     -> Writer $ FHTML True
+    _           -> Writer $ FHTML False

@@ -54,6 +54,7 @@ executable pandoc-sync
   main-is:             Sync.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   build-depends:       base
+                     , ansi-wl-pprint
                      , containers
                      , data-default
                      , directory

@@ -36,6 +36,8 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Maybe
 import           Crypto.Hash.MD5              (hashlazy)
+import           Data.Aeson
+import           Data.Aeson.Types
 import           Data.Binary.Orphans          ()
 import           Data.Dependent.Sum
 import           Data.Foldable
@@ -145,9 +147,15 @@ data ConflictMode = CMInteractive
                   | CMNewest
                   | CMOldest
                   | CMIgnore
+                  | CMError
+  deriving (Show, Generic)
 
-runSyncFile :: Bool -> ConflictMode -> SyncFile -> IO SyncFile
-runSyncFile dry cm s0 = do
+instance FromJSON ConflictMode where
+    parseJSON = genericParseJSON defaultOptions { constructorTagModifier = camelTo2 '-' . drop 2 }
+
+
+runSyncFile :: Bool -> ConflictMode -> ConflictMode -> SyncFile -> IO SyncFile
+runSyncFile dry cm0 cm1 s0 = do
     syncTime <- getCurrentTime
     (updatesE, updates) <- fmap (M.mapEither id . catMaybes)
              . ifor (s0 ^. sfSources) $ \fp sfd -> runMaybeT $ do
@@ -170,7 +178,9 @@ runSyncFile dry cm s0 = do
           -- _         -> Just $ Right (sfd ^. sfdLastSync, (newPd, mb))
           _         -> Just $ Right (newSnap, (newPd, mb))
         Left e      -> Just $ Left e
-    -- TODO: allow the user to pick which version to use
+    let cm = case s0 ^. sfLastUpdate of
+               Just _  -> cm1
+               Nothing -> cm0
     selected <- case cm of
       CMNewest -> return
                 . over _Just (\(x, _, y, z) -> (x, y, queueToMap (flip const) z))
@@ -222,11 +232,11 @@ runSyncFile dry cm s0 = do
   where
     backupError :: FilePath -> P.PandocError -> IO ()
     backupError fp pe = do
-      errorM "pandoc-sync" $ printf "Error reading contents of %s!" fp
+      errorM "pandoc-sync" $ printf "Error reading contents of %s" fp
       errorM "pandoc-sync" $ show pe
     backupLater :: FilePath -> (P.Pandoc, P.MediaBag) -> IO ()
     backupLater fp _ =
-      errorM "pandoc-sync" $ printf "Backing up conflicting version at %s!" fp
+      warningM "pandoc-sync" $ printf "Backing up conflicting version at %s" fp
     updateSource
         :: SingI r
         => UTCTime

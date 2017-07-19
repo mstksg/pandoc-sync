@@ -118,7 +118,7 @@ instance FromJSON SyncConfig where
             case inferWriter e of
               Writer ft -> Writer (FormatOptions ft def def)
         mkFormats (Right m) = m
-    
+
 
 instance ToJSON SyncConfig where
     toJSON sc = object $ mconcat
@@ -251,11 +251,12 @@ addSync s0 s1 = s0 & syncFiles %~ M.unionWith go (s1 ^. syncFiles)
 discoverSync :: SyncConfig -> Sync -> IO Sync
 discoverSync sc s0 = addSync s0 <$> initSync sc
 
-runSync :: Bool -> ConflictMode -> Sync -> IO Sync
-runSync dry cm = itraverseOf (syncFiles . itraversed) $ \fd sf -> do
+-- TODO: on first run, ConflictMode should be newest
+runSync :: Bool -> ConflictMode -> ConflictMode -> Sync -> IO Sync
+runSync dry cm0 cm1 = itraverseOf (syncFiles . itraversed) $ \fd sf -> do
     debugM "pandoc-sync" $ printf "Syncing file %s"
       (fd ^. fdBaseDir </> fd ^. fdFileName)
-    runSyncFile dry cm sf
+    runSyncFile dry cm0 cm1 sf
 
 loadSync :: SyncConfig -> IO Sync
 loadSync sc = do

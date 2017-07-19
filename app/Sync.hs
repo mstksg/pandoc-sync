@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE NoOverloadedStrings #-}
 {-# LANGUAGE RecordWildCards  #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -9,31 +10,43 @@ import           Control.Lens
 import           Control.Monad
 import           Data.Default
 import           Data.Foldable
+import           Data.Maybe
 import           Data.Monoid
-import           Data.Yaml           (decodeFileEither, encode, prettyPrintParseException, encodeFile)
+import           Data.Yaml hiding               (Parser)
 import           Options.Applicative
+import           Options.Applicative.Help.Chunk
 import           System.Directory
 import           System.Exit
 import           System.FSNotify
 import           System.FilePath
+import           System.IO
 import           System.IO.Error
+import           System.Log.Formatter
+import           System.Log.Handler.Simple
 import           System.Log.Logger
 import           Text.Pandoc.Sync
+import           Text.PrettyPrint.ANSI.Leijen   (indent)
 import           Text.Printf
-import qualified Data.Map            as M
-import qualified Data.Text           as T
-import qualified Data.Text.Encoding  as T
+import qualified Data.Map                       as M
+import qualified Data.Text                      as T
+import qualified Data.Text.Encoding             as T
+import qualified System.Log.Handler             as H
 
 data Command = CGenConfig  { _force  :: Bool }
              | CSync       { _dryRun :: Bool }
              | CClean
              | CWatch
+  deriving Show
 
 data Opts = O { oConfigFile   :: FilePath
+              , oLogFile      :: Maybe FilePath
               , oLogLevel     :: Priority
-              , oConflictMode :: ConflictMode
+              , oConflictMode :: Maybe ConflictMode
+              , oInitMode     :: Maybe ConflictMode
+              , oInteractive  :: Bool
               , oCommand      :: Command
               }
+  deriving Show
 
 parseOpts :: Parser (Command -> Opts)
 parseOpts =
@@ -44,18 +57,45 @@ parseOpts =
                    <> value "pandoc-sync.yaml"
                    <> showDefaultWith id
                     )
-      <*> asum [ flagOf DEBUG   "verbose" (Just 'v') "Verbose logging"
+      <*> optional (
+            strOption ( long "log"
+                     <> short 'l'
+                     <> metavar "FILE"
+                     <> help "Write event log to file"
+                      )
+         )
+      <*> asum [ flagOf INFO    "verbose" (Just 'v') "Verbose logging"
+               , flagOf DEBUG   "debug"   Nothing    "Log debug statements"
                , flagOf WARNING "silent"  (Just 's') "Silent non-error output"
                , pure NOTICE
                ]
-      <*> asum [ flagOf CMInteractive "interactive" (Just 'i') "Solve conflicts interactively"
-               , flagOf CMOldest      "oldest"      (Just 'o') "Chose oldest file to resolve conflict"
-               , flagOf CMIgnore      "ignore-conflicts" Nothing "Ignore all conflicts"
-               , pure CMNewest
-               ]
+      <*> optional (
+            option readCM ( long "conflict"
+                         <> metavar "METHOD"
+                         <> help "Conflict resolution method if more than one file has been modified. (default: oldest)"
+                          )
+          )
+      <*> optional (
+            option readCM ( long "init"
+                         <> metavar "METHOD"
+                         <> help (unwords ["Method to chose which file to keep when new file is discovered."
+                                          ,"By default wil be the same as --conflict if given, otherwise is"
+                                          ,"interactive for `sync` mode and ignore for `watch` mode."
+                                          ]
+                                 )
+                          )
+          )
+      <*> switch ( long "interactive"
+                <> short 'i'
+                <> help "Solve all conflicts interactively. (Overrides --conflict and --init)"
+                 )
   where
     flagOf :: a -> String -> Maybe Char -> String -> Parser a
     flagOf x n s h = flag' x (long n <> maybe mempty short s <> help h )
+    readCM :: ReadM ConflictMode
+    readCM = maybeReader (decode . T.encodeUtf8 . T.pack)
+      -- "interactive" -> Just CMInteractive
+      -- "oldest"      -> Just CMOldest
 
 parseCommand :: Parser Command
 parseCommand = subparser . mconcat $
@@ -87,12 +127,36 @@ parseCommand = subparser . mconcat $
 
 main :: IO ()
 main = do
-    O{..} <- execParser $ info ((parseOpts <*> parseCommand) <**> helper)
+    removeAllHandlers
+
+    o@O{..} <- execParser $ info ((parseOpts <*> parseCommand) <**> helper)
         ( fullDesc
-       <> progDesc "Keep files of different formats in sync using pandoc"
        <> header "pandoc-sync - Sync different formats"
+       <> progDescDoc (Just description)
         )
-    updateGlobalLogger "pandoc-sync" (setLevel oLogLevel)
+
+    let defConflict | oInteractive = CMInteractive
+                    | otherwise    = CMOldest
+        defInit     | oInteractive = CMInteractive
+                    | otherwise    = case oCommand of
+          CWatch -> CMIgnore
+          _      -> CMInteractive
+        conflictMode = fromMaybe defConflict oConflictMode
+        initMode     = fromMaybe defInit   $ oInitMode <|> oConflictMode
+
+
+    hFile   <- forM oLogFile $ \fp ->
+      fileHandler fp DEBUG <&> \lh ->
+        H.setFormatter lh (tfLogFormatter "%F %X" "$time [$prio] $msg")
+    hStream <- streamHandler stderr DEBUG <&> \lh ->
+        H.setFormatter lh (tfLogFormatter "%F %X" "[$prio] $msg")
+
+    updateGlobalLogger "pandoc-sync" $ setLevel oLogLevel
+                                     . setHandlers (hStream : maybeToList hFile)
+
+    forM_ oLogFile $ \fp -> do
+      noticeM "pandoc-sync" $ printf "pandoc-sync invoked, logging to %s" fp
+      debugM "pandoc-sync" (show o)
 
     case oCommand of
       CClean -> do
@@ -121,10 +185,10 @@ main = do
         debugM "pandoc-sync" $
           printf "Running sync command%s%s"
             (if dry then " (dry run)" else "")
-            (case oConflictMode of CMInteractive -> " (interactive)"
-                                   _             -> ""
+            (case conflictMode of CMInteractive -> " (interactive)"
+                                  _             -> ""
             )
-        withSync_ sc $ runSync dry oConflictMode
+        withSync_ sc $ runSync dry initMode conflictMode
       CWatch -> withManager $ \mgr -> do
         when (oLogLevel >= NOTICE) $
           updateGlobalLogger "pandoc-sync.negative" (setLevel WARNING)
@@ -133,10 +197,10 @@ main = do
         debugM "pandoc-sync" $ printf "Watching for file changes in directory %s" (sc ^. scRoot)
         let isNotCache fp = takeFileName fp /= takeFileName (sc ^. scCache)
         _ <- watchTree mgr (sc ^. scRoot) (isNotCache . eventPath) $ \e -> do
-          infoM "pandoc-sync" "Change detected!"
+          debugM "pandoc-sync" "fsnotify event received"
           debugM "pandoc-sync" $ show e
           modifyMVar_ new $ \_ -> return True
-        watchThread oConflictMode sc new
+        watchThread initMode conflictMode sc new
   where
     loadConfig :: FilePath -> IO SyncConfig
     loadConfig fp = do
@@ -150,15 +214,27 @@ main = do
           debugM "pandoc-sync" $ printf "Loaded configuration file at %s" fp
           debugM "pandoc-sync" . T.unpack . T.decodeUtf8 $ encode sc
           return sc
+    description = extractChunk . vsepChunks $
+      [ paragraph "Keeps files of different formats in sync using pandoc."
+      , vcatChunks [ paragraph "Methods for conflict resolution include:"
+                   , fmap (indent 2) . vcatChunks $
+                       [ paragraph "interactive: Prompt user for manual choice on file to keep"
+                       , paragraph "newest: Keep last-modified file"
+                       , paragraph "oldest: Keep first-modified file out of changed files"
+                       , paragraph "ignore: Do not sync files where a conflict exists"
+                       , paragraph "error: Halt sync immediately when conflict is found"
+                       ]
+                   ]
+      ]
 
-watchThread :: ConflictMode -> SyncConfig -> MVar Bool -> IO ()
-watchThread cm sc new = forever $ do
+watchThread :: ConflictMode -> ConflictMode -> SyncConfig -> MVar Bool -> IO ()
+watchThread cm0 cm1 sc new = forever $ do
     updated <- modifyMVar new $ \case
       True  -> return (False, True )
       False -> return (False, False)
     when updated $ do
       infoM "pandoc-sync" "File change detected, re-syncing ..."
-      withSync_ sc $ runSync False  cm
+      withSync_ sc $ runSync False cm0 cm1
     threadDelay 1000000
 
 

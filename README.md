@@ -120,14 +120,65 @@ Running `pandoc-sync sync` will get you:
 ```
 
 
-Formats and Options
--------------------
-
-Documentation still to be written, and full support for all options still be to
-be added.
+Formats
+-------
 
 You can turn any format into a "write-only format" (that is, the file will not
 be used as a source and any changes will be ignored or overwritten) by adding a
 `*` after its name.
 
-Some formats (like `pdf`) are already write-only.
+For example, `markdown*` is a write-only format, that will
+not be attempted to be read by pandoc-sync.  Its changes will also be
+overwritten if updates are detected.
+
+| Format                 | Identifier      | Default for extensions  | Readable?   | Notes                                        |
+| --------               | ----------      | ------------            | ----------- | -------                                      |
+| Markdown (pandoc)      | markdown        | md, markdown, txt, text | Yes         |                                              |
+| Markdown (strict)      | markdown strict |                         | Yes         |                                              |
+| Markdown (php)         | markdown php    |                         | Yes         |                                              |
+| Multimarkdown          | multimarkdown   |                         | Yes         |                                              |
+| Commonmark             | commonmark      |                         | Yes         |                                              |
+| Plain                  | plain           |                         | No          |                                              |
+| HTML                   | html4           |                         | Yes         |                                              |
+| HTML5                  | html            | assumed default         | Yes         |                                              |
+| LaTeX                  | latex           | tex, ltx, latex         | Yes         |                                              |
+| Beamer (PDF)           | beamer          |                         | No          |                                              |
+| ConTeXt                | context         | context, ctx            | No          |                                              |
+| PDF (via LaTeX)        | pdf             | pdf                     | No          |                                              |
+| PDF (via ConTeXt)      | context-pdf     |                         | No          |                                              |
+| PDF (via HTML5)        | html-pdf        |                         | No          |                                              |
+| DocX (Microsoft Word)  | docx            | doc, docx               | Yes         | Will use current file as template, if exists |
+| ODT                    | odt             | odt                     | Yes         | Will use current file as template, if exists |
+| RST                    | rst             | rst                     | Yes         |                                              |
+| RTF                    | rtf             | rtf                     | No          |                                              |
+| S5 slideshow           | s5              |                         | No          |                                              |
+| Slidy slideshow        | slidy           |                         | No          |                                              |
+| Slideous slideshow     | slideous        |                         | No          |                                              |
+| dzslides slideshow     | dzslides        |                         | No          |                                              |
+| reaval.js slideshow    | revealjs        |                         | No          |                                              |
+| Beamer slideshow (pdf) | beamer          |                         | No          |                                              |
+| Beamer slideshow (tex) | beamer-latex    |                         | No          |                                              |
+| asciidoc               | asciidoc        | adoc, asciidoc          | No          |                                              |
+| manfile (unix)         | man             | digits 1 - 9            | No          |                                              |
+| texinfo                | texinfo         | texinfo, texi           | No          |                                              |
+| Haddock                | haddock         |                         | Yes         |                                              |
+| Textile                | textile         | textile                 | Yes         |                                              |
+| Mediawiki              | mediawiki       |                         | Yes         |                                              |
+| DokuWiki               | dokuwiki        |                         | No          |                                              |
+| ZimWiki                | zimwiki         |                         | No          |                                              |
+| Docbook 4              | docbook         | db                      | Yes         |                                              |
+| Docbook 5              | docbook5        | db5                     | Yes         |                                              |
+| Fictionbook 2          | fictionbook     | fb2                     | No          |                                              |
+| EPUB 2                 | epub2           | epub, epub2             | Yes         |                                              |
+| EPUB 3                 | epub3           | epub3                   | Yes         |                                              |
+| Org                    | org             | org                     | Yes         |                                              |
+| OPML                   | opml            | opml                    | Yes         |                                              |
+| ICML                   | icml            | icml                    | No          |                                              |
+| TEI                    | tei             | tei, tei.xml            | No          |                                              |
+| Pandoc AST (json)      | json            | json                    | Yes         |                                              |
+| Pandoc AST (haskell)   | native          | native                  | Yes         |                                              |
+
+Options
+-------
+
+Full pandoc option support is still being developed/documented.

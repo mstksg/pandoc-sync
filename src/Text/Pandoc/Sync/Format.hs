@@ -707,7 +707,7 @@ parseSomeFormat = do
       , ("docbook"     , someFormat (FDocBook False)       )
       , ("db"          , someFormat (FDocBook False)       )
       , ("docbook5"    , someFormat (FDocBook True)        )
-      , ("db5"         , someFormat (FDocBook False)       )
+      , ("db5"         , someFormat (FDocBook True)        )
       , ("rst"         , someFormat FRST                   )
       , ("mediawiki"   , someFormat FMediaWiki             )
       , ("opml"        , someFormat FOPML                  )

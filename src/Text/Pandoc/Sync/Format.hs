@@ -391,8 +391,8 @@ instance FromJSON WriterOptions where
          <*> (v .:? "data-dir")
          <*> pure P.PlainMath
          <*> (fromMaybe M.empty <$> v .:? "variables")
-         <*> (fromMaybe 4 <$> v .: "tab-stop")
-         <*> (fromMaybe False <$> (v .: "toc" <|> v .: "table-of-contents"))
+         <*> (v .: "tab-stop" <|> pure 4)
+         <*> (v .: "toc" <|> v .: "table-of-contents" <|> pure False)
          <*> (v .:? "reference-odt")
          <*> (v .:? "reference-docx")
 
@@ -447,7 +447,7 @@ instance Hashable (Writer FormatOptions) where
       Writer fo -> s `hashWithSalt` fo
 
 instance FromJSON (Writer FormatOptions) where
-    parseJSON v = withOpts v <|> noOpts v
+    parseJSON v = withOpts v <|> noOpts v <|> fail "Format options parse failure"
       where
         withOpts = withObject "Writer FormatOptions" $ \v' -> do
           Writer ft <- v' .: "format"

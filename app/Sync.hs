@@ -80,7 +80,7 @@ parseOpts =
                          <> metavar "METHOD"
                          <> help (unwords ["Method to chose which file to keep when new file is discovered."
                                           ,"By default wil be the same as --conflict if given, otherwise is"
-                                          ,"interactive for `sync` mode and ignore for `watch` mode."
+                                          ,"interactive."
                                           ]
                                  )
                           )
@@ -137,10 +137,11 @@ main = do
 
     let defConflict | oInteractive = CMInteractive
                     | otherwise    = CMOldest
-        defInit     | oInteractive = CMInteractive
-                    | otherwise    = case oCommand of
-          CWatch -> CMIgnore
-          _      -> CMInteractive
+        defInit     = CMInteractive
+        -- defInit     | oInteractive = CMInteractive
+        --             | otherwise    = case oCommand of
+        --   CWatch -> CMIgnore
+        --   _      -> CMInteractive
         conflictMode = fromMaybe defConflict oConflictMode
         initMode     = fromMaybe defInit   $ oInitMode <|> oConflictMode
 
@@ -207,7 +208,7 @@ main = do
       sce <- decodeFileEither fp
       case sce of
         Left e -> do
-          errorM "pandoc-sync" "Could not parse log file:"
+          errorM "pandoc-sync" "Could not parse config file:"
           errorM "pandoc-sync" (prettyPrintParseException e)
           exitFailure
         Right sc -> do

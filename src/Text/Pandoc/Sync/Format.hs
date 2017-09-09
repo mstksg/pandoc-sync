@@ -342,8 +342,11 @@ instance (SingI b, FromJSON a) => FromJSON (HasIf b a) where
       STrue  -> fmap Has . parseJSON
       SFalse -> const $ pure Hasn't
 
-data ReaderOptions = RO
+data ReaderOptions = RO { _roSmart :: Bool
+                        }
     deriving (Show, Eq, Ord, Generic)
+
+makeClassy ''ReaderOptions
 
 deriving instance Ord P.HTMLMathMethod
 instance Bi.Binary P.HTMLMathMethod
@@ -358,6 +361,8 @@ data WriterOptions = WO { _woStandalone    :: Bool
                         , _woTOC           :: Bool
                         , _woReferenceODT  :: Maybe FilePath
                         , _woReferenceDocX :: Maybe FilePath
+                        , _woHighlight     :: Bool
+                        , _woColumns       :: Int
                         }
     deriving (Show, Eq, Ord, Generic)
 
@@ -367,10 +372,21 @@ instance Bi.Binary ReaderOptions
 instance Bi.Binary WriterOptions
 
 instance Default ReaderOptions where
-    def = RO
+    def = RO { _roSmart = False }
 
 instance Default WriterOptions where
-    def = WO True Nothing Nothing P.PlainMath M.empty 4 False Nothing Nothing
+    def = WO { _woStandalone = True
+             , _woTemplatePath  = Nothing
+             , _woDataDir       = Nothing
+             , _woMathMethod    = P.PlainMath
+             , _woVariables     = M.empty
+             , _woTabStop       = 4
+             , _woTOC           = False
+             , _woReferenceODT  = Nothing
+             , _woReferenceDocX = Nothing
+             , _woHighlight     = False
+             , _woColumns       = 72
+             }
 
 instance Hashable ReaderOptions
 instance Hashable WriterOptions where
@@ -382,8 +398,13 @@ instance Hashable WriterOptions where
                           `hashWithSalt` wo ^. woTOC
                           `hashWithSalt` wo ^. woReferenceODT
                           `hashWithSalt` wo ^. woReferenceDocX
+                          `hashWithSalt` wo ^. woHighlight
+                          `hashWithSalt` wo ^. woColumns
 
-instance FromJSON ReaderOptions
+instance FromJSON ReaderOptions where
+    parseJSON = withObject "ReaderOptions" $ \v ->
+      RO <$> (fromMaybe False <$> v .:? "smart")
+
 instance FromJSON WriterOptions where
     parseJSON = withObject "WriterOptions" $ \v ->
       WO <$> (fromMaybe True    <$> v .:? "standalone")
@@ -395,8 +416,13 @@ instance FromJSON WriterOptions where
          <*> (v .: "toc" <|> v .: "table-of-contents" <|> pure False)
          <*> (v .:? "reference-odt")
          <*> (v .:? "reference-docx")
+         <*> (v .: "highlight" <|> pure False)
+         <*> (v .: "columns" <|> pure 72)
 
-instance ToJSON ReaderOptions
+instance ToJSON ReaderOptions where
+    toJSON ro = object $ mconcat
+      [ ifNotDef "smart" True (ro ^. roSmart) ]
+
 instance ToJSON WriterOptions where
     toJSON wo = object $ mconcat
       [ ifNotDef "standalone"        True    (wo ^. woStandalone)
@@ -407,11 +433,13 @@ instance ToJSON WriterOptions where
       , ifNotDef "table-of-contents" False   (wo ^. woTOC)
       , ifNotDef "reference-odt"     Nothing (wo ^. woReferenceODT)
       , ifNotDef "reference-docx"    Nothing (wo ^. woReferenceDocX)
+      , ifNotDef "highlight"         False   (wo ^. woHighlight)
+      , ifNotDef "columns"           72      (wo ^. woColumns)
       ]
-      where
-        ifNotDef :: (ToJSON a, Eq a) => T.Text -> a -> a -> [(T.Text, Value)]
-        ifNotDef t d x | d == x    = []
-                       | otherwise = [t .= x]
+
+ifNotDef :: (ToJSON a, Eq a) => T.Text -> a -> a -> [(T.Text, Value)]
+ifNotDef t d x | d == x    = []
+               | otherwise = [t .= x]
 
 data FormatOptions :: Bool -> Bool -> Type where
     FormatOptions :: { _foFormat     :: Format r w
@@ -447,7 +475,7 @@ instance Hashable (Writer FormatOptions) where
       Writer fo -> s `hashWithSalt` fo
 
 instance FromJSON (Writer FormatOptions) where
-    parseJSON v = withOpts v <|> noOpts v <|> fail "Format options parse failure"
+    parseJSON v = noOpts v <|> withOpts v
       where
         withOpts = withObject "Writer FormatOptions" $ \v' -> do
           Writer ft <- v' .: "format"
@@ -474,10 +502,7 @@ instance Show (Writer FormatOptions) where
         app_prec = 10
 
 fromReaderOptions :: ReaderOptions -> P.ReaderOptions
-fromReaderOptions _ = def
-
--- writerOptions :: Format r w -> WriterOptions -> P.WriterOptions
--- writerOptions _ _ = def
+fromReaderOptions ro = def { P.readerSmart = ro ^. roSmart }
 
 pdfFormat :: PDFType -> Writer Format
 pdfFormat = \case

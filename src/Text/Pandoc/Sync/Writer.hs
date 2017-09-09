@@ -106,6 +106,8 @@ mkWriterOptions ft fp wo bag = do
                         (\_ -> return Nothing                     )
                  )
 
+    -- print datadir
+
     templ <- case wo ^. woTemplatePath of
       _ | not standalone -> return Nothing
       Nothing ->
@@ -152,6 +154,8 @@ mkWriterOptions ft fp wo bag = do
                , P.writerMediaBag        = bag
                , P.writerReferenceODT    = wo ^. woReferenceODT  <|> (fp <$ guard exists)
                , P.writerReferenceDocx   = wo ^. woReferenceDocX <|> (fp <$ guard exists)
+               , P.writerHighlight       = wo ^. woHighlight
+               , P.writerColumns         = wo ^. woColumns
                }
 
   where

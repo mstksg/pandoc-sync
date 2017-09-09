@@ -22,32 +22,32 @@ module Text.Pandoc.Sync (
   , module PS
   ) where
 
--- import           Control.Applicative
+-- import           Data.Foldable
 -- import           Debug.Trace
--- import qualified Data.Text           as T
+-- import qualified Data.Text          as T
+import           Control.Applicative
 import           Control.Exception
-import           Control.Lens hiding    ((.=))
+import           Control.Lens hiding   ((.=))
 import           Control.Monad
 import           Data.Aeson
 import           Data.Default
 import           Data.Dependent.Sum
-import           Data.Foldable
 import           Data.Hashable
 import           Data.List
 import           Data.Maybe
 import           Data.Monoid
 import           Data.Singletons
-import           GHC.Generics           (Generic)
+import           GHC.Generics          (Generic)
 import           System.Directory
 import           System.FilePath
 import           System.IO.Error
 import           System.Log.Logger
-import           Text.Pandoc.Sync.File  as PS
+import           Text.Pandoc.Sync.File as PS
 import           Text.Printf
-import qualified Data.Binary            as Bi
-import qualified Data.Map               as M
-import qualified Data.Set               as S
-import qualified Data.Text              as T
+import qualified Data.Binary           as Bi
+import qualified Data.Map              as M
+import qualified Data.Set              as S
+import qualified Data.Text             as T
 
 type FileExt = String
 
@@ -100,10 +100,8 @@ instance FromJSON SyncConfig where
           Nothing -> case ftree of
             Just t  -> return $ DMParallelTree t
             Nothing -> return DMSameDir
-        fts   <- asum [ Left  <$> v .: "formats"
-                      , Right <$> v .: "formats"
-                      , fail "List of formats to discover required."
-                      ]
+        fts   <- (Left  <$> v .: "formats")
+             <|> (Right <$> v .: "formats")
         rt    <- v .:? "root"
         cache <- v .:? "cache"
         return $ SC dm

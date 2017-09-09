@@ -46,9 +46,9 @@
 </span><a name="line-46"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">UTF8</span><span>             </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">UTF8</span><span>
 </span><a name="line-47"></a><span>
 </span><a name="line-48"></a><span class="hs-identifier">writePandoc</span><span>
-</span><a name="line-49"></a><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">SingI</span><span> </span><a href="#local-6989586621679523779"><span class="hs-identifier hs-type">r</span></a><span>
+</span><a name="line-49"></a><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">SingI</span><span> </span><a href="#local-6989586621679532721"><span class="hs-identifier hs-type">r</span></a><span>
 </span><a name="line-50"></a><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-identifier hs-type">Bool</span><span>
-</span><a name="line-51"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.Format.html#Format"><span class="hs-identifier hs-type">Format</span></a><span> </span><a href="#local-6989586621679523779"><span class="hs-identifier hs-type">r</span></a><span> </span><span class="hs-char">'True
+</span><a name="line-51"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.Format.html#Format"><span class="hs-identifier hs-type">Format</span></a><span> </span><a href="#local-6989586621679532721"><span class="hs-identifier hs-type">r</span></a><span> </span><span class="hs-char">'True
     -&gt; P.Pandoc
     -&gt; P.MediaBag
     -&gt; WriterOptions
@@ -106,6 +106,8 @@ mkWriterOptions ft fp wo bag = do
                         (\_ -&gt; return Nothing                     )
                  )
 
+    -- print datadir
+
     templ &lt;- case wo ^. woTemplatePath of
       _ | not standalone -&gt; return Nothing
       Nothing -&gt;
@@ -152,6 +154,8 @@ mkWriterOptions ft fp wo bag = do
                , P.writerMediaBag        = bag
                , P.writerReferenceODT    = wo ^. woReferenceODT  &lt;|&gt; (fp &lt;$ guard exists)
                , P.writerReferenceDocx   = wo ^. woReferenceDocX &lt;|&gt; (fp &lt;$ guard exists)
+               , P.writerHighlight       = wo ^. woHighlight
+               , P.writerColumns         = wo ^. woColumns
                }
 
   where

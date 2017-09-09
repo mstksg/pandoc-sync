@@ -22,32 +22,32 @@
 </span><a name="line-22"></a><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">PS</span><span>
 </span><a name="line-23"></a><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
 </span><a name="line-24"></a><span>
-</span><a name="line-25"></a><span class="hs-comment">-- import           Control.Applicative</span><span>
+</span><a name="line-25"></a><span class="hs-comment">-- import           Data.Foldable</span><span>
 </span><a name="line-26"></a><span class="hs-comment">-- import           Debug.Trace</span><span>
-</span><a name="line-27"></a><span class="hs-comment">-- import qualified Data.Text           as T</span><span>
-</span><a name="line-28"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Exception</span><span>
-</span><a name="line-29"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Lens</span><span> </span><span class="hs-keyword">hiding</span><span>    </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-operator hs-var">.=</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><a name="line-30"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span>
-</span><a name="line-31"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Aeson</span><span>
-</span><a name="line-32"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Default</span><span>
-</span><a name="line-33"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Dependent</span><span class="hs-operator">.</span><span class="hs-identifier">Sum</span><span>
-</span><a name="line-34"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Foldable</span><span>
+</span><a name="line-27"></a><span class="hs-comment">-- import qualified Data.Text          as T</span><span>
+</span><a name="line-28"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Applicative</span><span>
+</span><a name="line-29"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Exception</span><span>
+</span><a name="line-30"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Lens</span><span> </span><span class="hs-keyword">hiding</span><span>   </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-operator hs-var">.=</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-31"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span>
+</span><a name="line-32"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Aeson</span><span>
+</span><a name="line-33"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Default</span><span>
+</span><a name="line-34"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Dependent</span><span class="hs-operator">.</span><span class="hs-identifier">Sum</span><span>
 </span><a name="line-35"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Hashable</span><span>
 </span><a name="line-36"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">List</span><span>
 </span><a name="line-37"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Maybe</span><span>
 </span><a name="line-38"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Monoid</span><span>
 </span><a name="line-39"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span>
-</span><a name="line-40"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">GHC</span><span class="hs-operator">.</span><span class="hs-identifier">Generics</span><span>           </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">)</span><span>
+</span><a name="line-40"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">GHC</span><span class="hs-operator">.</span><span class="hs-identifier">Generics</span><span>          </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">)</span><span>
 </span><a name="line-41"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">Directory</span><span>
 </span><a name="line-42"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">FilePath</span><span>
 </span><a name="line-43"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">IO</span><span class="hs-operator">.</span><span class="hs-identifier">Error</span><span>
 </span><a name="line-44"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">Log</span><span class="hs-operator">.</span><span class="hs-identifier">Logger</span><span>
-</span><a name="line-45"></a><span class="hs-keyword">import</span><span>           </span><a href="Text.Pandoc.Sync.File.html"><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Sync</span><span class="hs-operator">.</span><span class="hs-identifier">File</span></a><span>  </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">PS</span><span>
+</span><a name="line-45"></a><span class="hs-keyword">import</span><span>           </span><a href="Text.Pandoc.Sync.File.html"><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Sync</span><span class="hs-operator">.</span><span class="hs-identifier">File</span></a><span> </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">PS</span><span>
 </span><a name="line-46"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Printf</span><span>
-</span><a name="line-47"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Binary</span><span>            </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">Bi</span><span>
-</span><a name="line-48"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Map</span><span>               </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">M</span><span>
-</span><a name="line-49"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Set</span><span>               </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">S</span><span>
-</span><a name="line-50"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Text</span><span>              </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">T</span><span>
+</span><a name="line-47"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Binary</span><span>           </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">Bi</span><span>
+</span><a name="line-48"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Map</span><span>              </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">M</span><span>
+</span><a name="line-49"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Set</span><span>              </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">S</span><span>
+</span><a name="line-50"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Text</span><span>             </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">T</span><span>
 </span><a name="line-51"></a><span>
 </span><a name="line-52"></a><span class="hs-keyword">type</span><span> </span><a name="FileExt"><a href="Text.Pandoc.Sync.html#FileExt"><span class="hs-identifier">FileExt</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-type">String</span><span>
 </span><a name="line-53"></a><span>
@@ -57,10 +57,10 @@
 </span><a name="line-57"></a><span>
 </span><a name="line-58"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">Bi</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Binary</span><span> </span><a href="Text.Pandoc.Sync.html#DiscoverMode"><span class="hs-identifier hs-type">DiscoverMode</span></a><span>
 </span><a name="line-59"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">Hashable</span><span> </span><a href="Text.Pandoc.Sync.html#DiscoverMode"><span class="hs-identifier hs-type">DiscoverMode</span></a><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-60"></a><span>    </span><a name="local-8214565720323808476"><span class="hs-identifier">hashWithSalt</span></a><span> </span><a name="local-6989586621679677514"><a href="#local-6989586621679677514"><span class="hs-identifier">s</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-keyword">case</span><span>
-</span><a name="line-61"></a><span>      </span><a href="Text.Pandoc.Sync.html#DMSameDir"><span class="hs-identifier hs-var">DMSameDir</span></a><span>         </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679677514"><span class="hs-identifier hs-var">s</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-special">(</span><span class="hs-number">0</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Int</span><span class="hs-special">)</span><span>
-</span><a name="line-62"></a><span>      </span><a href="Text.Pandoc.Sync.html#DMParallelTree"><span class="hs-identifier hs-var">DMParallelTree</span></a><span> </span><a name="local-6989586621679677515"><a href="#local-6989586621679677515"><span class="hs-identifier">mp</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679677514"><span class="hs-identifier hs-var">s</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-special">(</span><span class="hs-number">1</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Int</span><span class="hs-special">)</span><span>
-</span><a name="line-63"></a><span>                             </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">toList</span><span> </span><a href="#local-6989586621679677515"><span class="hs-identifier hs-var">mp</span></a><span>
+</span><a name="line-60"></a><span>    </span><a name="local-8214565720323808476"><span class="hs-identifier">hashWithSalt</span></a><span> </span><a name="local-6989586621679698868"><a href="#local-6989586621679698868"><span class="hs-identifier">s</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-keyword">case</span><span>
+</span><a name="line-61"></a><span>      </span><a href="Text.Pandoc.Sync.html#DMSameDir"><span class="hs-identifier hs-var">DMSameDir</span></a><span>         </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679698868"><span class="hs-identifier hs-var">s</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-special">(</span><span class="hs-number">0</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Int</span><span class="hs-special">)</span><span>
+</span><a name="line-62"></a><span>      </span><a href="Text.Pandoc.Sync.html#DMParallelTree"><span class="hs-identifier hs-var">DMParallelTree</span></a><span> </span><a name="local-6989586621679698869"><a href="#local-6989586621679698869"><span class="hs-identifier">mp</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679698868"><span class="hs-identifier hs-var">s</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-special">(</span><span class="hs-number">1</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Int</span><span class="hs-special">)</span><span>
+</span><a name="line-63"></a><span>                             </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">toList</span><span> </span><a href="#local-6989586621679698869"><span class="hs-identifier hs-var">mp</span></a><span>
 </span><a name="line-64"></a><span>
 </span><a name="line-65"></a><span class="hs-keyword">data</span><span> </span><a name="FileDiscover"><a href="Text.Pandoc.Sync.html#FileDiscover"><span class="hs-identifier">FileDiscover</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="FD"><a href="Text.Pandoc.Sync.html#FD"><span class="hs-identifier">FD</span></a></a><span> </span><span class="hs-special">{</span><span> </span><a name="_fdBaseDir"><a href="Text.Pandoc.Sync.html#_fdBaseDir"><span class="hs-identifier">_fdBaseDir</span></a></a><span>      </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">FilePath</span><span>
 </span><a name="line-66"></a><span>                       </span><span class="hs-special">,</span><span> </span><a name="_fdFileName"><a href="Text.Pandoc.Sync.html#_fdFileName"><span class="hs-identifier">_fdFileName</span></a></a><span>     </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">String</span><span>
@@ -100,10 +100,8 @@ instance FromJSON SyncConfig where
           Nothing -&gt; case ftree of
             Just t  -&gt; return $ DMParallelTree t
             Nothing -&gt; return DMSameDir
-        fts   &lt;- asum [ Left  &lt;$&gt; v .: &quot;formats&quot;
-                      , Right &lt;$&gt; v .: &quot;formats&quot;
-                      , fail &quot;List of formats to discover required.&quot;
-                      ]
+        fts   &lt;- (Left  &lt;$&gt; v .: &quot;formats&quot;)
+             &lt;|&gt; (Right &lt;$&gt; v .: &quot;formats&quot;)
         rt    &lt;- v .:? &quot;root&quot;
         cache &lt;- v .:? &quot;cache&quot;
         return $ SC dm
@@ -118,7 +116,7 @@ instance FromJSON SyncConfig where
             case inferWriter e of
               Writer ft -&gt; Writer (FormatOptions ft def def)
         mkFormats (Right m) = m
-    
+
 
 instance ToJSON SyncConfig where
     toJSON sc = object $ mconcat
@@ -251,11 +249,12 @@ addSync s0 s1 = s0 &amp; syncFiles %~ M.unionWith go (s1 ^. syncFiles)
 discoverSync :: SyncConfig -&gt; Sync -&gt; IO Sync
 discoverSync sc s0 = addSync s0 &lt;$&gt; initSync sc
 
-runSync :: Bool -&gt; ConflictMode -&gt; Sync -&gt; IO Sync
-runSync dry cm = itraverseOf (syncFiles . itraversed) $ \fd sf -&gt; do
+-- TODO: on first run, ConflictMode should be newest
+runSync :: Bool -&gt; ConflictMode -&gt; ConflictMode -&gt; Sync -&gt; IO Sync
+runSync dry cm0 cm1 = itraverseOf (syncFiles . itraversed) $ \fd sf -&gt; do
     debugM &quot;pandoc-sync&quot; $ printf &quot;Syncing file %s&quot;
       (fd ^. fdBaseDir &lt;/&gt; fd ^. fdFileName)
-    runSyncFile dry cm sf
+    runSyncFile dry cm0 cm1 sf
 
 loadSync :: SyncConfig -&gt; IO Sync
 loadSync sc = do
@@ -303,8 +302,10 @@ discoverAll wfs rt = do
     go :: FilePath -&gt; IO (M.Map FileDiscover (S.Set FileExt))
     go fp0 = do
         debugM &quot;pandoc-sync&quot; $ printf &quot;Searching directory %s&quot; fp0
-        fmap (M.unionsWith (&lt;&gt;)) . mapM process =&lt;&lt; listDirectory fp0
+        fmap (M.unionsWith (&lt;&gt;)) . mapM process . filter unHidden =&lt;&lt; listDirectory fp0
       where
+        -- ignoring hidden files.
+        unHidden p = not $ &quot;.&quot; `isPrefixOf` takeFileName p
         process :: FilePath -&gt; IO (M.Map FileDiscover (S.Set FileExt))
         process fp1 = do
           let fullPath = fp0 &lt;/&gt; fp1

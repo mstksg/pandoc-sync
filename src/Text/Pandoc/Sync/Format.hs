@@ -24,6 +24,7 @@ module Text.Pandoc.Sync.Format (
   , Writer(..)
   , ReaderOptions(..)
   , fromReaderOptions
+  , HighlightStyle(..), toStyle
   , WriterOptions(..), HasWriterOptions(..)
   -- , writerOptions
   , formatReader
@@ -60,11 +61,13 @@ import           Data.Singletons.Prelude.Bool
 import           Data.Type.Equality
 import           GHC.Generics                 (Generic)
 import           Text.Printf
+import qualified Data.Aeson.Types             as A
 import qualified Data.Binary                  as Bi
 import qualified Data.IntMap                  as IM
 import qualified Data.Map                     as M
 import qualified Data.Singletons.Decide       as Si
 import qualified Data.Text                    as T
+import qualified Skylighting                  as Sky
 import qualified Text.Megaparsec              as MP
 import qualified Text.Megaparsec.Lexer        as MPL
 import qualified Text.Megaparsec.Text         as MP
@@ -352,17 +355,49 @@ deriving instance Ord P.HTMLMathMethod
 instance Bi.Binary P.HTMLMathMethod
 instance Hashable P.HTMLMathMethod
 
-data WriterOptions = WO { _woStandalone    :: Bool
-                        , _woTemplatePath  :: Maybe FilePath
-                        , _woDataDir       :: Maybe FilePath
-                        , _woMathMethod    :: P.HTMLMathMethod
-                        , _woVariables     :: M.Map String String
-                        , _woTabStop       :: Int
-                        , _woTOC           :: Bool
-                        , _woReferenceODT  :: Maybe FilePath
-                        , _woReferenceDocX :: Maybe FilePath
-                        , _woHighlight     :: Bool
-                        , _woColumns       :: Int
+data HighlightStyle = HSPygments
+                    | HSTango
+                    | HSEspresso
+                    | HSZenburn
+                    | HSKate
+                    | HSMonochrome
+                    | HSHaddock
+    deriving (Show, Eq, Ord, Generic)
+
+instance Bi.Binary HighlightStyle
+instance Hashable HighlightStyle
+
+instance FromJSON HighlightStyle where
+    parseJSON = genericParseJSON defaultOptions
+        { A.constructorTagModifier = A.camelTo2 '-' . drop 2 }
+instance ToJSON HighlightStyle where
+    toJSON = genericToJSON defaultOptions
+        { A.constructorTagModifier = A.camelTo2 '-' . drop 2 }
+    toEncoding = genericToEncoding defaultOptions
+        { A.constructorTagModifier = A.camelTo2 '-' . drop 2 }
+
+toStyle :: HighlightStyle -> Sky.Style
+toStyle = \case
+    HSPygments   -> Sky.pygments
+    HSTango      -> Sky.tango
+    HSEspresso   -> Sky.espresso
+    HSZenburn    -> Sky.zenburn
+    HSKate       -> Sky.kate
+    HSMonochrome -> Sky.monochrome
+    HSHaddock    -> Sky.haddock
+
+data WriterOptions = WO { _woStandalone     :: Bool
+                        , _woTemplatePath   :: Maybe FilePath
+                        , _woDataDir        :: Maybe FilePath
+                        , _woMathMethod     :: P.HTMLMathMethod
+                        , _woVariables      :: M.Map String String
+                        , _woTabStop        :: Int
+                        , _woTOC            :: Bool
+                        , _woReferenceODT   :: Maybe FilePath
+                        , _woReferenceDocX  :: Maybe FilePath
+                        , _woHighlight      :: Bool
+                        , _woHighlightStyle :: HighlightStyle
+                        , _woColumns        :: Int
                         }
     deriving (Show, Eq, Ord, Generic)
 
@@ -375,17 +410,18 @@ instance Default ReaderOptions where
     def = RO { _roSmart = False }
 
 instance Default WriterOptions where
-    def = WO { _woStandalone = True
-             , _woTemplatePath  = Nothing
-             , _woDataDir       = Nothing
-             , _woMathMethod    = P.PlainMath
-             , _woVariables     = M.empty
-             , _woTabStop       = 4
-             , _woTOC           = False
-             , _woReferenceODT  = Nothing
-             , _woReferenceDocX = Nothing
-             , _woHighlight     = False
-             , _woColumns       = 72
+    def = WO { _woStandalone     = True
+             , _woTemplatePath   = Nothing
+             , _woDataDir        = Nothing
+             , _woMathMethod     = P.PlainMath
+             , _woVariables      = M.empty
+             , _woTabStop        = 4
+             , _woTOC            = False
+             , _woReferenceODT   = Nothing
+             , _woReferenceDocX  = Nothing
+             , _woHighlight      = False
+             , _woHighlightStyle = HSPygments
+             , _woColumns        = 72
              }
 
 instance Hashable ReaderOptions
@@ -399,6 +435,7 @@ instance Hashable WriterOptions where
                           `hashWithSalt` wo ^. woReferenceODT
                           `hashWithSalt` wo ^. woReferenceDocX
                           `hashWithSalt` wo ^. woHighlight
+                          `hashWithSalt` wo ^. woHighlightStyle
                           `hashWithSalt` wo ^. woColumns
 
 instance FromJSON ReaderOptions where
@@ -417,6 +454,7 @@ instance FromJSON WriterOptions where
          <*> (v .:? "reference-odt")
          <*> (v .:? "reference-docx")
          <*> (v .: "highlight" <|> pure False)
+         <*> (v .: "highlight-style" <|> pure HSPygments)
          <*> (v .: "columns" <|> pure 72)
 
 instance ToJSON ReaderOptions where
@@ -425,16 +463,17 @@ instance ToJSON ReaderOptions where
 
 instance ToJSON WriterOptions where
     toJSON wo = object $ mconcat
-      [ ifNotDef "standalone"        True    (wo ^. woStandalone)
+      [ ifNotDef "standalone"        True       (wo ^. woStandalone)
       , [ "template-path" .= (wo ^. woTemplatePath) ]
       , [ "data-dir"      .= (wo ^. woDataDir)      ]
-      , ifNotDef "variables"         M.empty (wo ^. woVariables)
-      , ifNotDef "tab-stop"          4       (wo ^. woTabStop)
-      , ifNotDef "table-of-contents" False   (wo ^. woTOC)
-      , ifNotDef "reference-odt"     Nothing (wo ^. woReferenceODT)
-      , ifNotDef "reference-docx"    Nothing (wo ^. woReferenceDocX)
-      , ifNotDef "highlight"         False   (wo ^. woHighlight)
-      , ifNotDef "columns"           72      (wo ^. woColumns)
+      , ifNotDef "variables"         M.empty    (wo ^. woVariables)
+      , ifNotDef "tab-stop"          4          (wo ^. woTabStop)
+      , ifNotDef "table-of-contents" False      (wo ^. woTOC)
+      , ifNotDef "reference-odt"     Nothing    (wo ^. woReferenceODT)
+      , ifNotDef "reference-docx"    Nothing    (wo ^. woReferenceDocX)
+      , ifNotDef "highlight"         False      (wo ^. woHighlight)
+      , ifNotDef "highlight-style"   HSPygments (wo ^. woHighlightStyle)
+      , ifNotDef "columns"           72         (wo ^. woColumns)
       ]
 
 ifNotDef :: (ToJSON a, Eq a) => T.Text -> a -> a -> [(T.Text, Value)]

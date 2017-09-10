@@ -155,6 +155,7 @@ mkWriterOptions ft fp wo bag = do
                , P.writerReferenceODT    = wo ^. woReferenceODT  <|> (fp <$ guard exists)
                , P.writerReferenceDocx   = wo ^. woReferenceDocX <|> (fp <$ guard exists)
                , P.writerHighlight       = wo ^. woHighlight
+               , P.writerHighlightStyle  = wo ^. woHighlightStyle . to toStyle
                , P.writerColumns         = wo ^. woColumns
                }
 

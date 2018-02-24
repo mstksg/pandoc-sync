@@ -5,3 +5,5 @@
 /pandoc-sync.yaml
 /test-sync
 /test-sync-same
+/old
+/*.cabal

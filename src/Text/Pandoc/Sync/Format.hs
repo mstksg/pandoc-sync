@@ -43,6 +43,7 @@ module Text.Pandoc.Sync.Format (
   , allFormats
   , allWriters
   , inferWriter
+  , inferFormat
   ) where
 
 import           Control.Applicative
@@ -52,6 +53,7 @@ import           Data.Aeson.Lens
 import           Data.Char
 import           Data.Default
 import           Data.Foldable
+import           Data.Function
 import           Data.Hashable
 import           Data.Kind
 import           Data.Maybe
@@ -59,6 +61,7 @@ import           Data.Monoid
 import           Data.Singletons
 import           Data.Singletons.Prelude.Bool
 import           Data.Type.Equality
+import           Data.Void
 import           GHC.Generics                 (Generic)
 import           Text.Printf
 import qualified Data.Aeson.Types             as A
@@ -69,9 +72,11 @@ import qualified Data.Singletons.Decide       as Si
 import qualified Data.Text                    as T
 import qualified Skylighting                  as Sky
 import qualified Text.Megaparsec              as MP
-import qualified Text.Megaparsec.Lexer        as MPL
-import qualified Text.Megaparsec.Text         as MP
+import qualified Text.Megaparsec.Char         as MP
+import qualified Text.Megaparsec.Char.Lexer   as MPL
 import qualified Text.Pandoc                  as P
+
+type Parser = MP.Parsec Void T.Text
 
 data MarkdownType = MDPandoc
                   | MDStrict
@@ -102,6 +107,8 @@ data PDFType = PTLaTeX
   deriving (Show, Generic, Eq, Ord, Enum, Bounded)
 
 instance Bi.Binary PDFType
+
+deriving instance Ord P.EPUBVersion
 
 data Format :: Bool -> Bool -> Type where
     FNative       :: Format 'True  'True
@@ -148,6 +155,7 @@ data Format :: Bool -> Bool -> Type where
                   -> Format 'True  'False
 
 deriving instance Show (Format r w)
+deriving instance Eq (Format r w)
 
 instance (SingI r, SingI w) => Bi.Binary (Format r w) where
     get = do
@@ -295,6 +303,13 @@ instance Hashable SomeFormat where
     hashWithSalt s (SomeFormat sr sw ft) = withSingI sr $
                                            withSingI sw $
       hashWithSalt s ft
+
+instance Eq SomeFormat where
+    (==) = (==) `on` hashWithSalt (0 :: Int)
+    (/=) = (/=) `on` hashWithSalt (0 :: Int)
+
+instance Ord SomeFormat where
+    compare = compare `on` hashWithSalt (0 :: Int)
 
 data HasIf :: Bool -> Type -> Type where
     Has    :: a -> HasIf 'True a
@@ -502,7 +517,7 @@ instance (SingI r, SingI w) => Hashable (FormatOptions r w) where
 instance Bi.Binary (Writer FormatOptions) where
     get = do
       r <- Bi.get @Bool
-      withSomeSing @_ @Bool r $ \(sr :: Sing r) -> withSingI sr $ do
+      withSomeSing r $ \(sr :: Sing r) -> withSingI sr $ do
         Writer @_ @r <$> Bi.get
     put = \case
       Writer (fo :: FormatOptions r 'True) -> do
@@ -541,7 +556,8 @@ instance Show (Writer FormatOptions) where
         app_prec = 10
 
 fromReaderOptions :: ReaderOptions -> P.ReaderOptions
-fromReaderOptions ro = def { P.readerSmart = ro ^. roSmart }
+-- fromReaderOptions ro = def { P.readerSmart = ro ^. roSmart }
+fromReaderOptions ro = def
 
 pdfFormat :: PDFType -> Writer Format
 pdfFormat = \case
@@ -551,14 +567,16 @@ pdfFormat = \case
     PTHTML5   -> Writer $ FHTML True
 
 formatReader
-    :: Format 'True w
-    -> P.Reader
+    :: P.PandocMonad m
+    => Format 'True w
+    -> P.Reader m
 formatReader = fromMaybe (error "invalid reader string?")
              . (`lookup` P.readers) . readerString
 
 formatWriter
-    :: Format r 'True
-    -> P.Writer
+    :: P.PandocMonad m
+    => Format r 'True
+    -> P.Writer m
 formatWriter = fromMaybe (error "invalid writer string?")
              . (`lookup` P.writers) . writerString
 
@@ -705,7 +723,7 @@ filterSomeFormat sr sw (SomeFormat sr' sw' ft) = do
       Si.Proved x    -> Just x
       Si.Disproved _ -> Nothing
 
-parseSomeFormat :: MP.Parser SomeFormat
+parseSomeFormat :: Parser SomeFormat
 parseSomeFormat = do
     baseFormat <- asum [ MP.try singleWord
                        , someFormat . ($ False) . FMarkdown <$> MP.try markdown
@@ -732,7 +750,7 @@ parseSomeFormat = do
        SomeFormat sr    sw    ft -> SomeFormat sr sw ft
   where
     symbol = MPL.symbol' MP.space
-    markdown :: MP.Parser MarkdownType
+    markdown :: Parser MarkdownType
     markdown = do
       _ <- MP.try (symbol "markdown") <|> symbol "md"
       asum [ MP.try $ MDStrict <$ symbol "strict"
@@ -748,9 +766,9 @@ parseSomeFormat = do
            , MP.try $ MDCommon <$ symbol "commonmark"
            , pure MDPandoc
            ]
-    singleWord :: MP.Parser SomeFormat
+    singleWord :: Parser SomeFormat
     singleWord = asum . flip M.mapWithKey singleWords $ \s ft -> MP.try $
-      ft <$ symbol s
+      ft <$ symbol (T.pack s)
     singleWords :: M.Map String SomeFormat
     singleWords = M.fromList
       [ ("native"      , someFormat FNative                )
@@ -824,6 +842,12 @@ parseSomeFormat = do
 instance FromJSON SomeFormat where
     parseJSON = withText "SomeFormat" $ \t ->
       case MP.parse parseSomeFormat "Value" t of
+        Left  e  -> fail $ MP.parseErrorPretty e
+        Right sf -> return sf
+
+instance FromJSONKey SomeFormat where
+    fromJSONKey = FromJSONKeyTextParser $ \t ->
+      case MP.parse parseSomeFormat "Key" t of
         Left  e  -> fail $ MP.parseErrorPretty e
         Right sf -> return sf
 
@@ -940,3 +964,44 @@ inferWriter ext = case map toLower ext of
     [y] | y `elem` ['1'..'9'] -> Writer FMan
     "html5"     -> Writer $ FHTML True
     _           -> Writer $ FHTML False
+
+inferFormat :: String -> SomeFormat
+inferFormat ext = case map toLower ext of
+    ""         -> someFormat $ FMarkdown MDPandoc False
+    "tex"      -> someFormat $ FLaTeX
+    "latex"    -> someFormat $ FLaTeX
+    "ltx"      -> someFormat $ FLaTeX
+    "context"  -> someFormat $ FConTeXt
+    "ctx"      -> someFormat $ FConTeXt
+    "rtf"      -> someFormat FRTF
+    "rst"      -> someFormat FRST
+    "s5"       -> someFormat $ FSlideShow SSS5
+    "native"   -> someFormat FNative
+    "json"     -> someFormat FJSON
+    "txt"      -> someFormat $ FMarkdown MDPandoc False
+    "text"     -> someFormat $ FMarkdown MDPandoc False
+    "md"       -> someFormat $ FMarkdown MDPandoc False
+    "markdown" -> someFormat $ FMarkdown MDPandoc False
+    "textile"  -> someFormat $ FTextile
+    "lhs"      -> someFormat $ FMarkdown MDPandoc True
+    "texi"     -> someFormat FTexinfo
+    "texinfo"  -> someFormat FTexinfo
+    "db"       -> someFormat $ FDocBook False
+    "db5"      -> someFormat $ FDocBook True
+    "odt"      -> someFormat FODT
+    "docx"     -> someFormat FDocX
+    "epub"     -> someFormat $ FEPub P.EPUB2
+    "epub2"    -> someFormat $ FEPub P.EPUB2
+    "epub3"    -> someFormat $ FEPub P.EPUB3
+    "org"      -> someFormat FOrg
+    "asciidoc" -> someFormat FASCIIDoc
+    "adoc"     -> someFormat FASCIIDoc
+    "pdf"      -> someFormat $ FPDF PTLaTeX
+    "fb2"      -> someFormat FFictionBook2
+    "opml"     -> someFormat FOPML
+    "icml"     -> someFormat FICML
+    "tei.xml"  -> someFormat FTEI
+    "tei"      -> someFormat FTEI
+    [y] | y `elem` ['1'..'9'] -> someFormat FMan
+    "html5"     -> someFormat $ FHTML True
+    _           -> someFormat $ FHTML False

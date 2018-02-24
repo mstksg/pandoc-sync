@@ -15,19 +15,18 @@ For example, with configuration:
 
 ```yaml
 branches:
-- format: markdown
-  root: md
-- format: docx
-  root: doc
-- format: rtf
-  root: doc
-- format: html
-  root: web
+  md:               # directory
+    markdown: {}    # format
+  doc:
+    docx: {}
+    rtf: {}
+  web:
+    html: {}
 ```
 
 Would define four different branches ("realizations") of the canonical files.
 
-If the canonical file system looks like:
+If the "canonical" directory looks like:
 
 ```
 .
@@ -69,8 +68,8 @@ Options
 
 ### Global
 
-Some options can be specified either in the top-level `options` key, and also
-in the `options` key per-branch:
+The following options can be provided in a top-level `options` key, and also
+given per-branch as the contents of the branch mappings:
 
 *   `always-backup`: `true` or `false` --- *always* back-up when things are
     being over-written, even if there is no conflict.
@@ -78,10 +77,14 @@ in the `options` key per-branch:
     Default: `false`
 *   `pandoc`: Settings for various pandoc reader and writer options
 *   `variables`: pandoc's key-value store used for templates
+*   `discover`: `true` or `false`.  Turn "automatic discovery" on or off.  If
+    off, only files explicitly listed (see next section) will be synced.
+
+    Default: `true`
 
 ### Branch only
 
-For each branch, in an `options` key, one may also specify:
+For each branch, one may specify:
 
 *   `mode`: can be one of:
 
@@ -106,7 +109,7 @@ For each branch, in an `options` key, one may also specify:
     `write` for all write-only formats (*pdf*).  `read` for all read-only
     formats.
 
-*   `priority`: An optional integer representing what branch to prioritize if
+*   `priority`: An integer representing what branch to prioritize if
     more than one change is found, or when resolving conflicts. Higher numbers
     indicate higher priority.  If two conflicts are found with the same
     priority, the *most recently changed* version is preferred.
@@ -137,19 +140,25 @@ sync.
 If used without `branches`, this disables discovery and allows one to
 specifically state only the files they wish to sync.
 
-If used with `branches`, this allows one to set per-file options:
+If used with `branches`, this allows one to set per-file options.
+
+You can also specify specific options for given branches per-file.
 
 ```yaml
 files:
-  foo:
+  foo:                      # canonical name
     options:                # for file 'foo' all branches
       always-backup: true
     branches:
-      - format: markdown
-        root: md
-        options:            $ for file 'foo' in 'markdown' branch ('foo.md')
+      md:
+        markdown:
           priority: 10
+          filename: foo2.md
 ```
+
+The extra `filename` option is available, which allows one to override
+discovery with specific filenames.  Note that if you override, files that would
+otherwise match through normal discovery are ignored completely.
 
 Discovery
 ---------
@@ -157,3 +166,7 @@ Discovery
 New files are discovered under the given format's default extension.  They are
 then realized in each branch by keeping the same basename and changing the
 extension to the format's default extension.
+
+Automatic discovery can be disabled on a global, per-branch, or per-file basis.
+
+Support for custom "discovery" rules may be considered in future versions.

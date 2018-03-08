@@ -170,3 +170,8 @@ extension to the format's default extension.
 Automatic discovery can be disabled on a global, per-branch, or per-file basis.
 
 Support for custom "discovery" rules may be considered in future versions.
+
+TODO
+----
+
+*   How to treat overlapping roots in formats

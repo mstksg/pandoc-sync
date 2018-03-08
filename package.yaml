@@ -46,6 +46,8 @@ library:
   - transformers
   - type-combinators
   - witherable
+  - free
+  - operational
 # executables:
 #   pandoc-sync:
 #     main: Sync.hs

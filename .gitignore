@@ -7,3 +7,5 @@
 /test-sync-same
 /old
 /*.cabal
+/TAGS
+/tags

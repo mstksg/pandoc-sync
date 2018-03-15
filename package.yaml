@@ -39,6 +39,7 @@ library:
   - megaparsec
   - pandoc-types
   - pandoc
+  - generics-sop
   - psqueues
   - singletons
   - skylighting
@@ -48,6 +49,7 @@ library:
   - witherable
   - free
   - operational
+  - data-diff
 # executables:
 #   pandoc-sync:
 #     main: Sync.hs

@@ -1,323 +1,304 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DeriveGeneric     #-}</span><span>
-</span><a name="line-2"></a><span class="hs-pragma">{-# LANGUAGE LambdaCase        #-}</span><span>
-</span><a name="line-3"></a><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
-</span><a name="line-4"></a><span class="hs-pragma">{-# LANGUAGE TemplateHaskell   #-}</span><span>
-</span><a name="line-5"></a><span class="hs-pragma">{-# LANGUAGE TupleSections     #-}</span><span>
-</span><a name="line-6"></a><span class="hs-pragma">{-# LANGUAGE TypeOperators     #-}</span><span>
-</span><a name="line-7"></a><span class="hs-pragma">{-# LANGUAGE ViewPatterns      #-}</span><span>
-</span><a name="line-8"></a><span>
-</span><a name="line-9"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Sync</span><span> </span><span class="hs-special">(</span><span>
-</span><a name="line-10"></a><span>    </span><a href="Text.Pandoc.Sync.html#FileExt"><span class="hs-identifier hs-type">FileExt</span></a><span>
-</span><a name="line-11"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.html#DiscoverMode"><span class="hs-identifier hs-type">DiscoverMode</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
-</span><a name="line-12"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.html#SyncConfig"><span class="hs-identifier hs-type">SyncConfig</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
-</span><a name="line-13"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.html#HasSyncConfig"><span class="hs-identifier hs-type">HasSyncConfig</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
-</span><a name="line-14"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.html#FileDiscover"><span class="hs-identifier hs-type">FileDiscover</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
-</span><a name="line-15"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.html#Sync"><span class="hs-identifier hs-type">Sync</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
-</span><a name="line-16"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.html#loadSync"><span class="hs-identifier hs-var">loadSync</span></a><span>
-</span><a name="line-17"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.html#initSync"><span class="hs-identifier hs-var">initSync</span></a><span>
-</span><a name="line-18"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.html#runSync"><span class="hs-identifier hs-var">runSync</span></a><span>
-</span><a name="line-19"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.html#discoverSync"><span class="hs-identifier hs-var">discoverSync</span></a><span>
-</span><a name="line-20"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.html#withSync"><span class="hs-identifier hs-var">withSync</span></a><span>
-</span><a name="line-21"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.html#withSync_"><span class="hs-identifier hs-var">withSync_</span></a><span>
-</span><a name="line-22"></a><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">PS</span><span>
-</span><a name="line-23"></a><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-24"></a><span>
-</span><a name="line-25"></a><span class="hs-comment">-- import           Data.Foldable</span><span>
-</span><a name="line-26"></a><span class="hs-comment">-- import           Debug.Trace</span><span>
-</span><a name="line-27"></a><span class="hs-comment">-- import qualified Data.Text          as T</span><span>
-</span><a name="line-28"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Applicative</span><span>
-</span><a name="line-29"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Exception</span><span>
-</span><a name="line-30"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Lens</span><span> </span><span class="hs-keyword">hiding</span><span>   </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-operator hs-var">.=</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><a name="line-31"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE ApplicativeDo       #-}</span><span>
+</span><a name="line-2"></a><span class="hs-pragma">{-# LANGUAGE DataKinds           #-}</span><span>
+</span><a name="line-3"></a><span class="hs-pragma">{-# LANGUAGE GADTs               #-}</span><span>
+</span><a name="line-4"></a><span class="hs-pragma">{-# LANGUAGE KindSignatures      #-}</span><span>
+</span><a name="line-5"></a><span class="hs-pragma">{-# LANGUAGE LambdaCase          #-}</span><span>
+</span><a name="line-6"></a><span class="hs-pragma">{-# LANGUAGE OverloadedStrings   #-}</span><span>
+</span><a name="line-7"></a><span class="hs-pragma">{-# LANGUAGE RecordWildCards     #-}</span><span>
+</span><a name="line-8"></a><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><a name="line-9"></a><span class="hs-pragma">{-# LANGUAGE TemplateHaskell     #-}</span><span>
+</span><a name="line-10"></a><span class="hs-pragma">{-# LANGUAGE TypeInType          #-}</span><span>
+</span><a name="line-11"></a><span class="hs-pragma">{-# LANGUAGE TypeOperators       #-}</span><span>
+</span><a name="line-12"></a><span>
+</span><a name="line-13"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Sync</span><span> </span><span class="hs-special">(</span><span>
+</span><a name="line-14"></a><span>    </span><a href="Text.Pandoc.Sync.html#Config"><span class="hs-identifier hs-type">Config</span></a><span>
+</span><a name="line-15"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.html#updateCanonical"><span class="hs-identifier hs-var">updateCanonical</span></a><span>
+</span><a name="line-16"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.html#syncBranch"><span class="hs-identifier hs-var">syncBranch</span></a><span>
+</span><a name="line-17"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.html#updateBranch"><span class="hs-identifier hs-var">updateBranch</span></a><span>
+</span><a name="line-18"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.html#pushBranch"><span class="hs-identifier hs-var">pushBranch</span></a><span>
+</span><a name="line-19"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="Text.Pandoc.Sync.html#pullBranch"><span class="hs-identifier hs-var">pullBranch</span></a><span>
+</span><a name="line-20"></a><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><a name="line-21"></a><span>
+</span><a name="line-22"></a><span class="hs-comment">-- import           Control.Alternative.Free.Final</span><span>
+</span><a name="line-23"></a><span class="hs-comment">-- import           Data.List</span><span>
+</span><a name="line-24"></a><span class="hs-comment">-- import           System.Directory</span><span>
+</span><a name="line-25"></a><span class="hs-comment">-- import qualified Data.Aeson.Types               as A</span><span>
+</span><a name="line-26"></a><span class="hs-comment">-- import qualified Data.ByteString                as BS</span><span>
+</span><a name="line-27"></a><span class="hs-comment">-- import qualified Data.Text                      as T</span><span>
+</span><a name="line-28"></a><span class="hs-comment">-- import qualified Generics.SOP                   as SOP</span><span>
+</span><a name="line-29"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Applicative</span><span class="hs-operator">.</span><span class="hs-identifier">Free</span><span>
+</span><a name="line-30"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Lens</span><span>
+</span><a name="line-31"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span class="hs-operator">.</span><span class="hs-identifier">Operational</span><span>
 </span><a name="line-32"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Aeson</span><span>
 </span><a name="line-33"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Default</span><span>
-</span><a name="line-34"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Dependent</span><span class="hs-operator">.</span><span class="hs-identifier">Sum</span><span>
-</span><a name="line-35"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Hashable</span><span>
-</span><a name="line-36"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">List</span><span>
+</span><a name="line-34"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Diff</span><span>
+</span><a name="line-35"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Foldable</span><span>
+</span><a name="line-36"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Kind</span><span>
 </span><a name="line-37"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Maybe</span><span>
-</span><a name="line-38"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Monoid</span><span>
-</span><a name="line-39"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Singletons</span><span>
-</span><a name="line-40"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">GHC</span><span class="hs-operator">.</span><span class="hs-identifier">Generics</span><span>          </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">)</span><span>
-</span><a name="line-41"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">Directory</span><span>
+</span><a name="line-38"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Semigroup</span><span> </span><span class="hs-keyword">hiding</span><span>        </span><span class="hs-special">(</span><span class="hs-identifier hs-var">diff</span><span class="hs-special">)</span><span>
+</span><a name="line-39"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Time</span><span>
+</span><a name="line-40"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Type</span><span class="hs-operator">.</span><span class="hs-identifier">Disjunction</span><span>
+</span><a name="line-41"></a><span class="hs-keyword">import</span><span>           </span><a href="Orphans.html"><span class="hs-identifier">Orphans</span></a><span>                      </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><a name="line-42"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">FilePath</span><span>
-</span><a name="line-43"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">IO</span><span class="hs-operator">.</span><span class="hs-identifier">Error</span><span>
-</span><a name="line-44"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">Log</span><span class="hs-operator">.</span><span class="hs-identifier">Logger</span><span>
-</span><a name="line-45"></a><span class="hs-keyword">import</span><span>           </span><a href="Text.Pandoc.Sync.File.html"><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Sync</span><span class="hs-operator">.</span><span class="hs-identifier">File</span></a><span> </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">PS</span><span>
-</span><a name="line-46"></a><span class="hs-keyword">import</span><span>           </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Printf</span><span>
-</span><a name="line-47"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Binary</span><span>           </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">Bi</span><span>
-</span><a name="line-48"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Map</span><span>              </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">M</span><span>
-</span><a name="line-49"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Set</span><span>              </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">S</span><span>
-</span><a name="line-50"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Text</span><span>             </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">T</span><span>
-</span><a name="line-51"></a><span>
-</span><a name="line-52"></a><span class="hs-keyword">type</span><span> </span><a name="FileExt"><a href="Text.Pandoc.Sync.html#FileExt"><span class="hs-identifier">FileExt</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-type">String</span><span>
-</span><a name="line-53"></a><span>
-</span><a name="line-54"></a><span class="hs-keyword">data</span><span> </span><a name="DiscoverMode"><a href="Text.Pandoc.Sync.html#DiscoverMode"><span class="hs-identifier">DiscoverMode</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="DMSameDir"><a href="Text.Pandoc.Sync.html#DMSameDir"><span class="hs-identifier">DMSameDir</span></a></a><span>
-</span><a name="line-55"></a><span>                  </span><span class="hs-glyph">|</span><span> </span><a name="DMParallelTree"><a href="Text.Pandoc.Sync.html#DMParallelTree"><span class="hs-identifier">DMParallelTree</span></a></a><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">M</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Map</span><span> </span><span class="hs-identifier hs-type">FilePath</span><span> </span><a href="Text.Pandoc.Sync.html#FileExt"><span class="hs-identifier hs-type">FileExt</span></a><span class="hs-special">)</span><span>
-</span><a name="line-56"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Eq</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Ord</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">)</span><span>
-</span><a name="line-57"></a><span>
-</span><a name="line-58"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">Bi</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Binary</span><span> </span><a href="Text.Pandoc.Sync.html#DiscoverMode"><span class="hs-identifier hs-type">DiscoverMode</span></a><span>
-</span><a name="line-59"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">Hashable</span><span> </span><a href="Text.Pandoc.Sync.html#DiscoverMode"><span class="hs-identifier hs-type">DiscoverMode</span></a><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-60"></a><span>    </span><a name="local-8214565720323808476"><span class="hs-identifier">hashWithSalt</span></a><span> </span><a name="local-6989586621679698868"><a href="#local-6989586621679698868"><span class="hs-identifier">s</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-keyword">case</span><span>
-</span><a name="line-61"></a><span>      </span><a href="Text.Pandoc.Sync.html#DMSameDir"><span class="hs-identifier hs-var">DMSameDir</span></a><span>         </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679698868"><span class="hs-identifier hs-var">s</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-special">(</span><span class="hs-number">0</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Int</span><span class="hs-special">)</span><span>
-</span><a name="line-62"></a><span>      </span><a href="Text.Pandoc.Sync.html#DMParallelTree"><span class="hs-identifier hs-var">DMParallelTree</span></a><span> </span><a name="local-6989586621679698869"><a href="#local-6989586621679698869"><span class="hs-identifier">mp</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679698868"><span class="hs-identifier hs-var">s</span></a><span> </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-special">(</span><span class="hs-number">1</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Int</span><span class="hs-special">)</span><span>
-</span><a name="line-63"></a><span>                             </span><span class="hs-special">`</span><span class="hs-identifier hs-var">hashWithSalt</span><span class="hs-special">`</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">toList</span><span> </span><a href="#local-6989586621679698869"><span class="hs-identifier hs-var">mp</span></a><span>
+</span><a name="line-43"></a><span class="hs-keyword">import</span><span>           </span><a href="Text.Pandoc.Sync.Format.html"><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Sync</span><span class="hs-operator">.</span><span class="hs-identifier">Format</span></a><span>
+</span><a name="line-44"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">List</span><span class="hs-operator">.</span><span class="hs-identifier">NonEmpty</span><span>           </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">NE</span><span>
+</span><a name="line-45"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Map</span><span>                     </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">M</span><span>
+</span><a name="line-46"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Map</span><span class="hs-operator">.</span><span class="hs-identifier">Merge</span><span class="hs-operator">.</span><span class="hs-identifier">Lazy</span><span>          </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">M</span><span>
+</span><a name="line-47"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Set</span><span>                     </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">S</span><span>
+</span><a name="line-48"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Text</span><span class="hs-operator">.</span><span class="hs-identifier">Pandoc</span><span class="hs-operator">.</span><span class="hs-identifier">Definition</span><span>       </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">P</span><span>
+</span><a name="line-49"></a><span>
+</span><a name="line-50"></a><span class="hs-keyword">type</span><span> </span><a name="CanPath"><a href="Text.Pandoc.Sync.html#CanPath"><span class="hs-identifier">CanPath</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-type">FilePath</span><span>
+</span><a name="line-51"></a><span class="hs-keyword">type</span><span> </span><a name="Extension"><a href="Text.Pandoc.Sync.html#Extension"><span class="hs-identifier">Extension</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-type">String</span><span>
+</span><a name="line-52"></a><span>
+</span><a name="line-53"></a><span class="hs-keyword">data</span><span> </span><a name="BranchSpec"><a href="Text.Pandoc.Sync.html#BranchSpec"><span class="hs-identifier">BranchSpec</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="BS"><a href="Text.Pandoc.Sync.html#BS"><span class="hs-identifier">BS</span></a></a><span> </span><span class="hs-special">{</span><span> </span><a name="_bsRoot"><a href="Text.Pandoc.Sync.html#_bsRoot"><span class="hs-identifier">_bsRoot</span></a></a><span>   </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">FilePath</span><span>
+</span><a name="line-54"></a><span>                     </span><span class="hs-special">,</span><span> </span><a name="_bsFormat"><a href="Text.Pandoc.Sync.html#_bsFormat"><span class="hs-identifier">_bsFormat</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><a href="Text.Pandoc.Sync.Format.html#SomeFormat"><span class="hs-identifier hs-type">SomeFormat</span></a><span>
+</span><a name="line-55"></a><span>                     </span><span class="hs-special">,</span><span> </span><a name="_bsExt"><a href="Text.Pandoc.Sync.html#_bsExt"><span class="hs-identifier">_bsExt</span></a></a><span>    </span><span class="hs-glyph">::</span><span> </span><a href="Text.Pandoc.Sync.html#Extension"><span class="hs-identifier hs-type">Extension</span></a><span>
+</span><a name="line-56"></a><span>                     </span><span class="hs-special">}</span><span>
+</span><a name="line-57"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Eq</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Ord</span><span class="hs-special">)</span><span>
+</span><a name="line-58"></a><span class="hs-identifier hs-var">makeLenses</span><span> </span><span class="hs-special">''</span><span class="hs-identifier hs-var">BranchSpec</span><span>
+</span><a name="line-59"></a><span>
+</span><a name="line-60"></a><span class="hs-keyword">data</span><span> </span><a name="CFile"><a href="Text.Pandoc.Sync.html#CFile"><span class="hs-identifier">CFile</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="CF"><a href="Text.Pandoc.Sync.html#CF"><span class="hs-identifier">CF</span></a></a><span> </span><span class="hs-special">{</span><span> </span><a name="_cfPandoc"><a href="Text.Pandoc.Sync.html#_cfPandoc"><span class="hs-identifier">_cfPandoc</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">P</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Pandoc</span><span>
+</span><a name="line-61"></a><span>                </span><span class="hs-special">,</span><span> </span><a name="_cfUpdate"><a href="Text.Pandoc.Sync.html#_cfUpdate"><span class="hs-identifier">_cfUpdate</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">UTCTime</span><span>
+</span><a name="line-62"></a><span>                </span><span class="hs-special">}</span><span>
+</span><a name="line-63"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Eq</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Ord</span><span class="hs-special">)</span><span>
 </span><a name="line-64"></a><span>
-</span><a name="line-65"></a><span class="hs-keyword">data</span><span> </span><a name="FileDiscover"><a href="Text.Pandoc.Sync.html#FileDiscover"><span class="hs-identifier">FileDiscover</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="FD"><a href="Text.Pandoc.Sync.html#FD"><span class="hs-identifier">FD</span></a></a><span> </span><span class="hs-special">{</span><span> </span><a name="_fdBaseDir"><a href="Text.Pandoc.Sync.html#_fdBaseDir"><span class="hs-identifier">_fdBaseDir</span></a></a><span>      </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">FilePath</span><span>
-</span><a name="line-66"></a><span>                       </span><span class="hs-special">,</span><span> </span><a name="_fdFileName"><a href="Text.Pandoc.Sync.html#_fdFileName"><span class="hs-identifier">_fdFileName</span></a></a><span>     </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">String</span><span>
-</span><a name="line-67"></a><span>                       </span><span class="hs-special">}</span><span>
-</span><a name="line-68"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Eq</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Ord</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Generic</span><span class="hs-special">)</span><span>
-</span><a name="line-69"></a><span>
-</span><a name="line-70"></a><span class="hs-identifier hs-var">makeLenses</span><span> </span><span class="hs-char">''FileDiscover
-
-instance Bi.Binary FileDiscover
-
-data SyncConfig = SC { _scDiscoverMode :: DiscoverMode
-                     , _scFormats      :: M.Map FileExt (Writer FormatOptions)
-                     , _scRoot         :: FilePath
-                     , _scCache        :: FilePath
-                     }
-  deriving (Show, Generic)
-
-makeClassy ''SyncConfig
-
-instance Bi.Binary SyncConfig
-instance Hashable SyncConfig where
-    hashWithSalt s sc = s `hashWithSalt` (sc ^. scDiscoverMode)
-                          `hashWithSalt` (sc ^. scRoot)
-                          `hashWithSalt` (sc ^. scCache)
-                          `hashWithSalt` M.toList (sc ^. scFormats)
-
-
-instance FromJSON SyncConfig where
-    parseJSON = withObject &quot;SyncConfig&quot; $ \v -&gt; do
-        pmode &lt;- v .:? &quot;parallel-mode&quot;
-        ftree &lt;- v .:? &quot;format-tree&quot;
-        dm &lt;- case pmode of
-          Just True -&gt; case ftree of
-            Just t  -&gt; return $ DMParallelTree t
-            Nothing -&gt; fail &quot;Parallel mode indicated, but format-tree required.&quot;
-          Just False -&gt; return DMSameDir
-          Nothing -&gt; case ftree of
-            Just t  -&gt; return $ DMParallelTree t
-            Nothing -&gt; return DMSameDir
-        fts   &lt;- (Left  &lt;$&gt; v .: &quot;formats&quot;)
-             &lt;|&gt; (Right &lt;$&gt; v .: &quot;formats&quot;)
-        rt    &lt;- v .:? &quot;root&quot;
-        cache &lt;- v .:? &quot;cache&quot;
-        return $ SC dm
-                    (mkFormats fts)
-                    (fromMaybe &quot;&quot; rt)
-                    (fromMaybe &quot;.pandoc-sync-cache&quot; cache)
-      where
-        mkFormats
-            :: Either (S.Set FileExt) (M.Map FileExt (Writer FormatOptions))
-            -&gt; M.Map FileExt (Writer FormatOptions)
-        mkFormats (Left  s) = flip M.fromSet s $ \e -&gt;
-            case inferWriter e of
-              Writer ft -&gt; Writer (FormatOptions ft def def)
-        mkFormats (Right m) = m
-
-
-instance ToJSON SyncConfig where
-    toJSON sc = object $ mconcat
-        [ case sc ^. scDiscoverMode of
-            DMSameDir        -&gt; [ &quot;parallel-mode&quot; .= False ]
-            DMParallelTree t -&gt; [ &quot;parallel-mode&quot; .= True
-                                , &quot;format-tree&quot;   .= t
-                                ]
-        , [ &quot;formats&quot; .= (sc ^. scFormats) ]
-        , ifNotDef &quot;root&quot;  &quot;&quot;                  (sc ^. scRoot)
-        , ifNotDef &quot;cache&quot; &quot;pandoc-sync-cache&quot; (sc ^. scCache)
-        ]
-      where
-        ifNotDef :: (ToJSON a, Eq a) =&gt; T.Text -&gt; a -&gt; a -&gt; [(T.Text, Value)]
-        ifNotDef t d x | d == x    = []
-                       | otherwise = [t .= x]
-
-data Sync = Sync { _syncFiles    :: M.Map FileDiscover SyncFile
-                 , _syncConfHash :: Int
-                 }
-    deriving (Show, Generic)
-
-makeLenses ''Sync
-
-instance Bi.Binary Sync
-
-initSync :: SyncConfig -&gt; IO Sync
-initSync sc = do
-    createDirectoryIfMissing True (sc ^. scRoot)
-    -- TODO: log &quot;new files&quot;
-    res &lt;- case sc ^. scDiscoverMode of
-      DMSameDir          -&gt;
-        fillSameDir . M.mapWithKey mkSF
-          &lt;$&gt; discoverAll (sc ^. scFormats) (sc ^. scRoot)
-      DMParallelTree rts -&gt;
-        M.mapWithKey (fillParallel rts) . M.unionsWith mergeSF
-          &lt;$&gt; traverse (uncurry mkParallel) (M.toList rts)
-    forM_ (M.toList res) . uncurry $ \fd sf -&gt;
-      infoM &quot;pandoc-sync&quot; $ printf &quot;Consolidated file %s, consisting of paths %s&quot;
-        (fd ^. fdBaseDir &lt;/&gt; fd ^. fdFileName)
-        (show (sf ^.. sfSourcesSinks . to M.keys . traverse))
-    return $ Sync res (hash sc)
-  where
-    fillSameDir
-        :: M.Map FileDiscover SyncFile
-        -&gt; M.Map FileDiscover SyncFile
-    fillSameDir sfs = M.unionWith mergeSF sfs fills
-      where
-        fills :: M.Map FileDiscover SyncFile
-        fills = M.mapWithKey go sfs
-        go :: FileDiscover -&gt; SyncFile -&gt; SyncFile
-        go fd = over sfSourcesSinks (`M.union` filled)
-          where
-            filled :: M.Map FilePath (DSum Sing SyncFileData)
-            filled = M.fromList . map (uncurry go2) . M.toList $ sc ^. scFormats
-            go2 :: FileExt
-                -&gt; Writer FormatOptions
-                -&gt; (FilePath, DSum Sing SyncFileData)
-            go2 ex (Writer fo) = (fullPath, sfd)
-              where
-                sfd = sing :=&gt; SyncFileData (fo ^. foFormat)
-                                            (fo ^. foReaderOpts)
-                                            (fo ^. foWriterOpts . _Has)
-                                            Nothing
-                fullPath = fd ^. fdBaseDir &lt;/&gt; fd ^. fdFileName -&lt;.&gt; ex
-    mkParallel :: FilePath -&gt; FileExt -&gt; IO (M.Map FileDiscover SyncFile)
-    mkParallel rt ex = case sc ^? scFormats . ix ex of
-      -- TODO: handle bad format?
-      Nothing -&gt; return M.empty
-      Just wf -&gt;
-        let fullRt = sc ^. scRoot &lt;/&gt; rt
-        in  do res &lt;- over (traverse . sfSourcesSinks . mapKeys) (fullRt &lt;/&gt;)
-                    . M.mapWithKey mkSF
-                    . over (mapKeys . fdBaseDir) (fromJust . stripPrefix fullRt)
-                    &lt;$&gt; discoverAll (M.singleton ex wf) fullRt
-               return res
-    fillParallel :: M.Map FilePath FileExt -&gt; FileDiscover -&gt; SyncFile -&gt; SyncFile
-    fillParallel rts fd = over sfSourcesSinks (`M.union` filled)
-      where
-        filled = M.fromList
-               . mapMaybe (uncurry go)
-               . M.toList
-               $ rts
-        go :: FilePath -&gt; FileExt -&gt; Maybe (FilePath, DSum Sing SyncFileData)
-        go rt ex = sc ^? scFormats
-                       . ix ex
-                       . to (\case Writer fo -&gt;
-                                    let sfd = sing :=&gt; SyncFileData (fo ^. foFormat)
-                                                  (fo ^. foReaderOpts)
-                                                  (fo ^. foWriterOpts . _Has)
-                                                  Nothing
-                                    in  (fullPath, sfd)
-                            )
-          where
-            fullPath = sc ^. scRoot &lt;/&gt; rt &lt;/&gt; fd ^. fdBaseDir &lt;/&gt; fd ^. fdFileName -&lt;.&gt; ex
-    mkSF :: FileDiscover -&gt; S.Set FileExt -&gt; SyncFile
-    mkSF fd exs = emptySyncFile &amp;
-        sfSourcesSinks .~ M.mapKeys mkFileName extMap
-      where
-        extMap :: M.Map FileExt (DSum Sing SyncFileData)
-        extMap = flip M.fromSet exs $ \ex -&gt;
-          let d = case inferWriter ex of
-                    Writer ft -&gt; Writer $ FormatOptions ft def def
-          in  go $ M.findWithDefault d ex (sc ^. scFormats)
-        mkFileName :: FileExt -&gt; FilePath
-        mkFileName fe = (fd ^. fdBaseDir) &lt;/&gt; (fd ^. fdFileName) -&lt;.&gt; fe
-        go :: Writer FormatOptions -&gt; DSum Sing SyncFileData
-        go = \case
-          Writer fo -&gt; sing :=&gt;
-            SyncFileData (fo ^. foFormat)
-                         (fo ^. foReaderOpts)
-                         (fo ^. foWriterOpts . _Has)
-                         Nothing
-    mergeSF :: SyncFile -&gt; SyncFile -&gt; SyncFile
-    mergeSF s1 s2 = s1 &amp; sfSourcesSinks %~ (`M.union` (s2 ^. sfSourcesSinks))
-
-
--- fromJust' :: Show a =&gt; (a -&gt; Maybe b) -&gt; a -&gt; b
--- fromJust' f x = fromMaybe (error $ printf &quot;fromJust call&quot;) $ f x
---   where
---                   Nothing -&gt; error $ &quot;fromJust called from applying &quot; ++ show x
---                   Just y  -&gt; y
-
-addSync :: Sync -&gt; Sync -&gt; Sync
-addSync s0 s1 = s0 &amp; syncFiles %~ M.unionWith go (s1 ^. syncFiles)
-  where
-    go :: SyncFile -&gt; SyncFile -&gt; SyncFile
-    go sf1 sf0 = sf0 &amp; sfSourcesSinks %~ (`M.union` (sf1 ^. sfSourcesSinks))
-
-discoverSync :: SyncConfig -&gt; Sync -&gt; IO Sync
-discoverSync sc s0 = addSync s0 &lt;$&gt; initSync sc
-
--- TODO: on first run, ConflictMode should be newest
-runSync :: Bool -&gt; ConflictMode -&gt; ConflictMode -&gt; Sync -&gt; IO Sync
-runSync dry cm0 cm1 = itraverseOf (syncFiles . itraversed) $ \fd sf -&gt; do
-    debugM &quot;pandoc-sync&quot; $ printf &quot;Syncing file %s&quot;
-      (fd ^. fdBaseDir &lt;/&gt; fd ^. fdFileName)
-    runSyncFile dry cm0 cm1 sf
-
-loadSync :: SyncConfig -&gt; IO Sync
-loadSync sc = do
-    es &lt;- fmap join
-        . tryJust (guard . isDoesNotExistError)
-        . set (mapped . _Left) ()
-        $ Bi.decodeFileOrFail (sc ^. scCache)
-    case es of
-      Right s | s ^. syncConfHash == hash sc -&gt;
-        discoverSync sc s
-              | otherwise                    -&gt; do
-        warningM &quot;pandoc-sync&quot; &quot;Configuration changed&quot;
-        removeFile (sc ^. scCache)
-        initSync sc
-      Left ()                                -&gt;
-        initSync sc
-
-withSync :: SyncConfig -&gt; (Sync -&gt; IO (r, Sync)) -&gt; IO r
-withSync sc f = do
-    s0 &lt;- loadSync sc
-    (y, s1) &lt;- f s0
-    Bi.encodeFile (sc ^. scCache) s1
-    return y
-
-withSync_ :: SyncConfig -&gt; (Sync -&gt; IO Sync) -&gt; IO ()
-withSync_ sc f = withSync sc (fmap ((),) . f)
-
-discoverAll
-    :: M.Map FileExt (Writer FormatOptions)
-    -&gt; FilePath
-    -&gt; IO (M.Map FileDiscover (S.Set FileExt))
-discoverAll wfs rt = do
-    isFile &lt;- doesFileExist rt
-    when isFile $ error &quot;There's a file there, what gives?&quot;
-    createDirectoryIfMissing True rt
-    debugM &quot;pandoc-sync&quot; $ printf &quot;Discovering files in %s with extensions in %s&quot;
-        rt (show (M.keys wfs))
-    res &lt;- go rt
-    forM_ (M.toList res) . uncurry $ \fd exs -&gt;
-      debugM &quot;pandoc-sync&quot; $ printf &quot;Found file %s with extensions %s&quot;
-        (fd ^. fdBaseDir &lt;/&gt; fd ^. fdFileName)
-        (show (S.toList exs))
-    return res
-  where
-    go :: FilePath -&gt; IO (M.Map FileDiscover (S.Set FileExt))
-    go fp0 = do
-        debugM &quot;pandoc-sync&quot; $ printf &quot;Searching directory %s&quot; fp0
-        fmap (M.unionsWith (&lt;&gt;)) . mapM process . filter unHidden =&lt;&lt; listDirectory fp0
-      where
-        -- ignoring hidden files.
-        unHidden p = not $ &quot;.&quot; `isPrefixOf` takeFileName p
-        process :: FilePath -&gt; IO (M.Map FileDiscover (S.Set FileExt))
-        process fp1 = do
-          let fullPath = fp0 &lt;/&gt; fp1
-          debugM &quot;pandoc-sync&quot; $ printf &quot;Processing file %s&quot; fullPath
-          isFile &lt;- doesFileExist fullPath
-          let (fn, drop 1 -&gt; ex) = splitExtension fp1
-          if isFile
-            then return $ if ex `M.member` wfs
-                   then M.singleton (FD fp0 fn) (S.singleton ex)
-                   else M.empty
-            else go fullPath
-
-mapKeys :: (Ord k1, Ord k2) =&gt; Traversal (M.Map k1 v) (M.Map k2 v) k1 k2
-mapKeys f = fmap M.fromList . (traverse . _1) f . M.toList
-</span></pre></body></html>
+</span><a name="line-65"></a><span class="hs-identifier hs-var">makeLenses</span><span> </span><span class="hs-special">''</span><span class="hs-identifier hs-var">CFile</span><span>
+</span><a name="line-66"></a><span>
+</span><a name="line-67"></a><span class="hs-comment">-- data BFile = BF { _bfCFile  :: FilePath         -- ^ canonical file?</span><span>
+</span><a name="line-68"></a><span class="hs-comment">--                 , _bfUpdate :: UTCTime</span><span>
+</span><a name="line-69"></a><span class="hs-comment">--                 }</span><span>
+</span><a name="line-70"></a><span>
+</span><a name="line-71"></a><span class="hs-keyword">type</span><span> </span><a name="Canonical"><a href="Text.Pandoc.Sync.html#Canonical"><span class="hs-identifier">Canonical</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-type">M</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Map</span><span> </span><a href="Text.Pandoc.Sync.html#CanPath"><span class="hs-identifier hs-type">CanPath</span></a><span> </span><a href="Text.Pandoc.Sync.html#CFile"><span class="hs-identifier hs-type">CFile</span></a><span>
+</span><a name="line-72"></a><span>
+</span><a name="line-73"></a><span class="hs-keyword">type</span><span> </span><a name="Branch"><a href="Text.Pandoc.Sync.html#Branch"><span class="hs-identifier">Branch</span></a></a><span>    </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-type">M</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Map</span><span> </span><a href="Text.Pandoc.Sync.html#CanPath"><span class="hs-identifier hs-type">CanPath</span></a><span> </span><span class="hs-identifier hs-type">UTCTime</span><span>
+</span><a name="line-74"></a><span>
+</span><a name="line-75"></a><span class="hs-keyword">data</span><span> </span><a name="SyncState"><a href="Text.Pandoc.Sync.html#SyncState"><span class="hs-identifier">SyncState</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="SS"><a href="Text.Pandoc.Sync.html#SS"><span class="hs-identifier">SS</span></a></a><span> </span><span class="hs-special">{</span><span> </span><a name="_ssCanonical"><a href="Text.Pandoc.Sync.html#_ssCanonical"><span class="hs-identifier">_ssCanonical</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><a href="Text.Pandoc.Sync.html#Canonical"><span class="hs-identifier hs-type">Canonical</span></a><span>
+</span><a name="line-76"></a><span>                    </span><span class="hs-special">,</span><span> </span><a name="_ssBranches"><a href="Text.Pandoc.Sync.html#_ssBranches"><span class="hs-identifier">_ssBranches</span></a></a><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">M</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Map</span><span> </span><a href="Text.Pandoc.Sync.html#BranchSpec"><span class="hs-identifier hs-type">BranchSpec</span></a><span> </span><a href="Text.Pandoc.Sync.html#Branch"><span class="hs-identifier hs-type">Branch</span></a><span>
+</span><a name="line-77"></a><span>                    </span><span class="hs-special">}</span><span>
+</span><a name="line-78"></a><span>
+</span><a name="line-79"></a><span class="hs-keyword">data</span><span> </span><a name="Opts"><a href="Text.Pandoc.Sync.html#Opts"><span class="hs-identifier">Opts</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="O"><a href="Text.Pandoc.Sync.html#O"><span class="hs-identifier">O</span></a></a><span>
+</span><a name="line-80"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-identifier hs-type">Show</span><span>
+</span><a name="line-81"></a><span>
+</span><a name="line-82"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">Semigroup</span><span> </span><a href="Text.Pandoc.Sync.html#Opts"><span class="hs-identifier hs-type">Opts</span></a><span> </span><span class="hs-keyword">where</span><span>
+</span><a name="line-83"></a><span>    </span><span class="hs-identifier">_</span><span> </span><a name="local-3458764513820541482"><span class="hs-operator">&lt;&gt;</span></a><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><a href="Text.Pandoc.Sync.html#O"><span class="hs-identifier hs-var">O</span></a><span>
+</span><a name="line-84"></a><span>
+</span><a name="line-85"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">Monoid</span><span> </span><a href="Text.Pandoc.Sync.html#Opts"><span class="hs-identifier hs-type">Opts</span></a><span> </span><span class="hs-keyword">where</span><span>
+</span><a name="line-86"></a><span>    </span><a name="local-3458764513820541483"><span class="hs-identifier">mempty</span></a><span>  </span><span class="hs-glyph">=</span><span> </span><a href="Text.Pandoc.Sync.html#O"><span class="hs-identifier hs-var">O</span></a><span>
+</span><a name="line-87"></a><span>    </span><a name="local-3458764513820541484"><span class="hs-identifier">mappend</span></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-operator hs-var">&lt;&gt;</span><span class="hs-special">)</span><span>
+</span><a name="line-88"></a><span>
+</span><a name="line-89"></a><span class="hs-keyword">data</span><span> </span><a name="FileConfig"><a href="Text.Pandoc.Sync.html#FileConfig"><span class="hs-identifier">FileConfig</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="FC"><a href="Text.Pandoc.Sync.html#FC"><span class="hs-identifier">FC</span></a></a><span> </span><span class="hs-special">{</span><span> </span><a name="_fcOpts"><a href="Text.Pandoc.Sync.html#_fcOpts"><span class="hs-identifier">_fcOpts</span></a></a><span>     </span><span class="hs-glyph">::</span><span> </span><a href="Text.Pandoc.Sync.html#Opts"><span class="hs-identifier hs-type">Opts</span></a><span>
+</span><a name="line-90"></a><span>                     </span><span class="hs-special">,</span><span> </span><a name="_fcBranches"><a href="Text.Pandoc.Sync.html#_fcBranches"><span class="hs-identifier">_fcBranches</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">M</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Map</span><span> </span><a href="Text.Pandoc.Sync.html#BranchSpec"><span class="hs-identifier hs-type">BranchSpec</span></a><span> </span><a href="Text.Pandoc.Sync.html#Opts"><span class="hs-identifier hs-type">Opts</span></a><span>
+</span><a name="line-91"></a><span>                     </span><span class="hs-special">}</span><span>
+</span><a name="line-92"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-identifier hs-type">Show</span><span>
+</span><a name="line-93"></a><span>
+</span><a name="line-94"></a><span class="hs-keyword">data</span><span> </span><a name="Config"><a href="Text.Pandoc.Sync.html#Config"><span class="hs-identifier">Config</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="C"><a href="Text.Pandoc.Sync.html#C"><span class="hs-identifier">C</span></a></a><span> </span><span class="hs-special">{</span><span> </span><a name="_cOpts"><a href="Text.Pandoc.Sync.html#_cOpts"><span class="hs-identifier">_cOpts</span></a></a><span>     </span><span class="hs-glyph">::</span><span> </span><a href="Text.Pandoc.Sync.html#Opts"><span class="hs-identifier hs-type">Opts</span></a><span>
+</span><a name="line-95"></a><span>                </span><span class="hs-special">,</span><span> </span><a name="_cBranches"><a href="Text.Pandoc.Sync.html#_cBranches"><span class="hs-identifier">_cBranches</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">M</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Map</span><span> </span><a href="Text.Pandoc.Sync.html#BranchSpec"><span class="hs-identifier hs-type">BranchSpec</span></a><span> </span><a href="Text.Pandoc.Sync.html#Opts"><span class="hs-identifier hs-type">Opts</span></a><span>
+</span><a name="line-96"></a><span>                </span><span class="hs-special">,</span><span> </span><a name="_cFiles"><a href="Text.Pandoc.Sync.html#_cFiles"><span class="hs-identifier">_cFiles</span></a></a><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">M</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Map</span><span> </span><a href="Text.Pandoc.Sync.html#CanPath"><span class="hs-identifier hs-type">CanPath</span></a><span> </span><a href="Text.Pandoc.Sync.html#FileConfig"><span class="hs-identifier hs-type">FileConfig</span></a><span>
+</span><a name="line-97"></a><span>                </span><span class="hs-special">}</span><span>
+</span><a name="line-98"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-identifier hs-type">Show</span><span>
+</span><a name="line-99"></a><span>
+</span><a name="line-100"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">Default</span><span> </span><a href="Text.Pandoc.Sync.html#Opts"><span class="hs-identifier hs-type">Opts</span></a><span> </span><span class="hs-keyword">where</span><span>
+</span><a name="line-101"></a><span>    </span><a name="local-8214565720323802142"><span class="hs-identifier">def</span></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="Text.Pandoc.Sync.html#O"><span class="hs-identifier hs-var">O</span></a><span>
+</span><a name="line-102"></a><span>
+</span><a name="line-103"></a><span class="hs-identifier">collapseMap</span><span>
+</span><a name="line-104"></a><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Ord</span><span> </span><a href="#local-6989586621679423627"><span class="hs-identifier hs-type">c</span></a><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Semigroup</span><span> </span><a href="#local-6989586621679423628"><span class="hs-identifier hs-type">d</span></a><span class="hs-special">)</span><span>
+</span><a name="line-105"></a><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><a href="#local-6989586621679423629"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679423630"><span class="hs-identifier hs-type">b</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679423627"><span class="hs-identifier hs-type">c</span></a><span class="hs-special">)</span><span>
+</span><a name="line-106"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">M</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Map</span><span> </span><a href="#local-6989586621679423629"><span class="hs-identifier hs-type">a</span></a><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">M</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Map</span><span> </span><a href="#local-6989586621679423630"><span class="hs-identifier hs-type">b</span></a><span> </span><a href="#local-6989586621679423628"><span class="hs-identifier hs-type">d</span></a><span class="hs-special">)</span><span>
+</span><a name="line-107"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">M</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Map</span><span> </span><a href="#local-6989586621679423627"><span class="hs-identifier hs-type">c</span></a><span> </span><a href="#local-6989586621679423628"><span class="hs-identifier hs-type">d</span></a><span>
+</span><a name="line-108"></a><a name="collapseMap"><a href="Text.Pandoc.Sync.html#collapseMap"><span class="hs-identifier">collapseMap</span></a></a><span> </span><a name="local-6989586621679423631"><a href="#local-6989586621679423631"><span class="hs-identifier">f</span></a></a><span> </span><a name="local-6989586621679423632"><a href="#local-6989586621679423632"><span class="hs-identifier">m</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">fromListWith</span><span> </span><span class="hs-special">(</span><span class="hs-operator hs-var">&lt;&gt;</span><span class="hs-special">)</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a name="line-109"></a><span>    </span><span class="hs-special">(</span><a name="local-6989586621679423633"><a href="#local-6989586621679423633"><span class="hs-identifier">x</span></a></a><span class="hs-special">,</span><span> </span><a name="local-6989586621679423634"><a href="#local-6989586621679423634"><span class="hs-identifier">ys</span></a></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">toList</span><span> </span><a href="#local-6989586621679423632"><span class="hs-identifier hs-var">m</span></a><span>
+</span><a name="line-110"></a><span>    </span><span class="hs-special">(</span><a name="local-6989586621679423635"><a href="#local-6989586621679423635"><span class="hs-identifier">y</span></a></a><span class="hs-special">,</span><span> </span><a name="local-6989586621679423636"><a href="#local-6989586621679423636"><span class="hs-identifier">z</span></a></a><span> </span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">toList</span><span> </span><a href="#local-6989586621679423634"><span class="hs-identifier hs-var">ys</span></a><span>
+</span><a name="line-111"></a><span>    </span><span class="hs-identifier hs-var">return</span><span> </span><span class="hs-special">(</span><a href="#local-6989586621679423631"><span class="hs-identifier hs-var">f</span></a><span> </span><a href="#local-6989586621679423633"><span class="hs-identifier hs-var">x</span></a><span> </span><a href="#local-6989586621679423635"><span class="hs-identifier hs-var">y</span></a><span class="hs-special">,</span><span> </span><a href="#local-6989586621679423636"><span class="hs-identifier hs-var">z</span></a><span class="hs-special">)</span><span>
+</span><a name="line-112"></a><span>
+</span><a name="line-113"></a><span>
+</span><a name="line-114"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">FromJSON</span><span> </span><a href="Text.Pandoc.Sync.html#FileConfig"><span class="hs-identifier hs-type">FileConfig</span></a><span> </span><span class="hs-keyword">where</span><span>
+</span><a name="line-115"></a><span>    </span><a name="local-8214565720323788188"><span class="hs-identifier">parseJSON</span></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">withObject</span><span> </span><span class="hs-string">&quot;FileConfig&quot;</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-glyph">\</span><a name="local-6989586621679423619"><a href="#local-6989586621679423619"><span class="hs-identifier">v</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a name="line-116"></a><span>      </span><a name="local-6989586621679423620"><a href="#local-6989586621679423620"><span class="hs-identifier">opts</span></a></a><span>     </span><span class="hs-glyph">&lt;-</span><span> </span><a href="#local-6989586621679423619"><span class="hs-identifier hs-var">v</span></a><span> </span><span class="hs-operator hs-var">.:?</span><span> </span><span class="hs-string">&quot;options&quot;</span><span>  </span><span class="hs-operator hs-var">.!=</span><span> </span><span class="hs-identifier hs-var">def</span><span>
+</span><a name="line-117"></a><span>      </span><a name="local-6989586621679423621"><a href="#local-6989586621679423621"><span class="hs-identifier">branches</span></a></a><span> </span><span class="hs-glyph">&lt;-</span><span> </span><a href="#local-6989586621679423619"><span class="hs-identifier hs-var">v</span></a><span> </span><span class="hs-operator hs-var">.:?</span><span> </span><span class="hs-string">&quot;branches&quot;</span><span> </span><span class="hs-operator hs-var">.!=</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">empty</span><span>
+</span><a name="line-118"></a><span>      </span><span class="hs-identifier">return</span><span> </span><span class="hs-operator">$</span><span> </span><a href="Text.Pandoc.Sync.html#FC"><span class="hs-identifier hs-var">FC</span></a><span> </span><a href="#local-6989586621679423620"><span class="hs-identifier hs-var">opts</span></a><span> </span><span class="hs-special">(</span><a href="Text.Pandoc.Sync.html#collapseMap"><span class="hs-identifier hs-var">collapseMap</span></a><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><a name="local-6989586621679423622"><a href="#local-6989586621679423622"><span class="hs-identifier">p</span></a></a><span> </span><a name="local-6989586621679423623"><a href="#local-6989586621679423623"><span class="hs-identifier">f</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.html#BS"><span class="hs-identifier hs-var">BS</span></a><span> </span><a href="#local-6989586621679423622"><span class="hs-identifier hs-var">p</span></a><span> </span><a href="#local-6989586621679423623"><span class="hs-identifier hs-var">f</span></a><span> </span><span class="hs-string">&quot;md&quot;</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679423621"><span class="hs-identifier hs-var">branches</span></a><span class="hs-special">)</span><span>
+</span><a name="line-119"></a><span>
+</span><a name="line-120"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">FromJSON</span><span> </span><a href="Text.Pandoc.Sync.html#Opts"><span class="hs-identifier hs-type">Opts</span></a><span> </span><span class="hs-keyword">where</span><span>
+</span><a name="line-121"></a><span>    </span><a name="local-8214565720323788188"><span class="hs-identifier">parseJSON</span></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">withObject</span><span> </span><span class="hs-string">&quot;Opts&quot;</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-glyph">\</span><a name="local-6989586621679423618"><a href="#local-6989586621679423618"><span class="hs-identifier">v</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a name="line-122"></a><span>      </span><span class="hs-identifier hs-var">pure</span><span> </span><a href="Text.Pandoc.Sync.html#O"><span class="hs-identifier hs-var">O</span></a><span>
+</span><a name="line-123"></a><span>
+</span><a name="line-124"></a><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier hs-type">FromJSON</span><span> </span><a href="Text.Pandoc.Sync.html#Config"><span class="hs-identifier hs-type">Config</span></a><span> </span><span class="hs-keyword">where</span><span>
+</span><a name="line-125"></a><span>    </span><a name="local-8214565720323788188"><span class="hs-identifier">parseJSON</span></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">withObject</span><span> </span><span class="hs-string">&quot;Config&quot;</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-glyph">\</span><a name="local-6989586621679423612"><a href="#local-6989586621679423612"><span class="hs-identifier">v</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a name="line-126"></a><span>        </span><a name="local-6989586621679423613"><a href="#local-6989586621679423613"><span class="hs-identifier">opts</span></a></a><span>     </span><span class="hs-glyph">&lt;-</span><span> </span><a href="#local-6989586621679423612"><span class="hs-identifier hs-var">v</span></a><span> </span><span class="hs-operator hs-var">.:?</span><span> </span><span class="hs-string">&quot;options&quot;</span><span>  </span><span class="hs-operator hs-var">.!=</span><span> </span><span class="hs-identifier hs-var">def</span><span>
+</span><a name="line-127"></a><span>        </span><a name="local-6989586621679423614"><a href="#local-6989586621679423614"><span class="hs-identifier">branches</span></a></a><span> </span><span class="hs-glyph">&lt;-</span><span> </span><a href="#local-6989586621679423612"><span class="hs-identifier hs-var">v</span></a><span> </span><span class="hs-operator hs-var">.:?</span><span> </span><span class="hs-string">&quot;branches&quot;</span><span> </span><span class="hs-operator hs-var">.!=</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">empty</span><span>
+</span><a name="line-128"></a><span>        </span><a name="local-6989586621679423615"><a href="#local-6989586621679423615"><span class="hs-identifier">files</span></a></a><span>    </span><span class="hs-glyph">&lt;-</span><span> </span><a href="#local-6989586621679423612"><span class="hs-identifier hs-var">v</span></a><span> </span><span class="hs-operator hs-var">.:?</span><span> </span><span class="hs-string">&quot;files&quot;</span><span>    </span><span class="hs-operator hs-var">.!=</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">empty</span><span>
+</span><a name="line-129"></a><span>        </span><span class="hs-identifier">return</span><span> </span><span class="hs-operator">$</span><span> </span><a href="Text.Pandoc.Sync.html#C"><span class="hs-identifier hs-var">C</span></a><span> </span><a href="#local-6989586621679423613"><span class="hs-identifier hs-var">opts</span></a><span> </span><span class="hs-special">(</span><a href="Text.Pandoc.Sync.html#collapseMap"><span class="hs-identifier hs-var">collapseMap</span></a><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><a name="local-6989586621679423616"><a href="#local-6989586621679423616"><span class="hs-identifier">p</span></a></a><span> </span><a name="local-6989586621679423617"><a href="#local-6989586621679423617"><span class="hs-identifier">f</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.html#BS"><span class="hs-identifier hs-var">BS</span></a><span> </span><a href="#local-6989586621679423616"><span class="hs-identifier hs-var">p</span></a><span> </span><a href="#local-6989586621679423617"><span class="hs-identifier hs-var">f</span></a><span> </span><span class="hs-string">&quot;md&quot;</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679423614"><span class="hs-identifier hs-var">branches</span></a><span class="hs-special">)</span><span> </span><a href="#local-6989586621679423615"><span class="hs-identifier hs-var">files</span></a><span>
+</span><a name="line-130"></a><span>
+</span><a name="line-131"></a><span class="hs-comment">-- classify</span><span>
+</span><a name="line-132"></a><span class="hs-comment">--     :: Config</span><span>
+</span><a name="line-133"></a><span class="hs-comment">--     -&gt; FilePath</span><span>
+</span><a name="line-134"></a><span class="hs-comment">--     -&gt; M.Map BranchSpec CanPath     -- canonical</span><span>
+</span><a name="line-135"></a><span class="hs-comment">-- classify C{..} fp = M.fromList $ do</span><span>
+</span><a name="line-136"></a><span class="hs-comment">--     rootElems &lt;- drop 1 . reverse . inits . splitPath $ fp</span><span>
+</span><a name="line-137"></a><span class="hs-comment">--     let root = takeDirectory . joinPath $ rootElems</span><span>
+</span><a name="line-138"></a><span class="hs-comment">--         bs   = BS root format</span><span>
+</span><a name="line-139"></a><span class="hs-comment">--         can  = dropExtension . makeRelative root $ fp</span><span>
+</span><a name="line-140"></a><span class="hs-comment">--     _ &lt;- maybeToList $ M.lookup bs _cBranches</span><span>
+</span><a name="line-141"></a><span class="hs-comment">--     return (bs, can)</span><span>
+</span><a name="line-142"></a><span class="hs-comment">--   where</span><span>
+</span><a name="line-143"></a><span class="hs-comment">--     format = inferFormat (drop 1 (takeExtension fp))</span><span>
+</span><a name="line-144"></a><span>
+</span><a name="line-145"></a><span class="hs-keyword">data</span><span> </span><a name="AskFileF"><a href="Text.Pandoc.Sync.html#AskFileF"><span class="hs-identifier">AskFileF</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Type</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">Type</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">Type</span><span> </span><span class="hs-keyword">where</span><span>
+</span><a name="line-146"></a><span>    </span><a name="AF"><a href="Text.Pandoc.Sync.html#AF"><span class="hs-identifier">AF</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">FilePath</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.html#AskFileF"><span class="hs-identifier hs-type">AskFileF</span></a><span> </span><a href="#local-6989586621679423611"><span class="hs-identifier hs-type">t</span></a><span> </span><a href="#local-6989586621679423611"><span class="hs-identifier hs-type">t</span></a><span>
+</span><a name="line-147"></a><span>
+</span><a name="line-148"></a><span class="hs-keyword">type</span><span> </span><a name="AskFile"><a href="Text.Pandoc.Sync.html#AskFile"><span class="hs-identifier">AskFile</span></a></a><span> </span><a name="local-6989586621679423610"><a href="#local-6989586621679423610"><span class="hs-identifier">t</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-type">Ap</span><span> </span><span class="hs-special">(</span><a href="Text.Pandoc.Sync.html#AskFileF"><span class="hs-identifier hs-type">AskFileF</span></a><span> </span><a href="#local-6989586621679423610"><span class="hs-identifier hs-type">t</span></a><span class="hs-special">)</span><span>
+</span><a name="line-149"></a><span>
+</span><a name="line-150"></a><span class="hs-identifier">askFile</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">FilePath</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.html#AskFile"><span class="hs-identifier hs-type">AskFile</span></a><span> </span><a href="#local-6989586621679423626"><span class="hs-identifier hs-type">t</span></a><span> </span><a href="#local-6989586621679423626"><span class="hs-identifier hs-type">t</span></a><span>
+</span><a name="line-151"></a><a name="askFile"><a href="Text.Pandoc.Sync.html#askFile"><span class="hs-identifier">askFile</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">liftAp</span><span> </span><span class="hs-operator hs-var">.</span><span> </span><a href="Text.Pandoc.Sync.html#AF"><span class="hs-identifier hs-var">AF</span></a><span>
+</span><a name="line-152"></a><span>
+</span><a name="line-153"></a><span class="hs-keyword">data</span><span> </span><a name="UpdateFileF"><a href="Text.Pandoc.Sync.html#UpdateFileF"><span class="hs-identifier">UpdateFileF</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Type</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">Type</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">Type</span><span> </span><span class="hs-keyword">where</span><span>
+</span><a name="line-154"></a><span>    </span><a name="UF"><a href="Text.Pandoc.Sync.html#UF"><span class="hs-identifier">UF</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">FilePath</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679423609"><span class="hs-identifier hs-type">s</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.html#UpdateFileF"><span class="hs-identifier hs-type">UpdateFileF</span></a><span> </span><a href="#local-6989586621679423609"><span class="hs-identifier hs-type">s</span></a><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><a name="line-155"></a><span>
+</span><a name="line-156"></a><span class="hs-comment">-- data TellFileF :: Type -&gt; Type -&gt; Type where</span><span>
+</span><a name="line-157"></a><span class="hs-comment">--     TF :: FilePath -&gt; s -&gt; TellFileF s ()</span><span>
+</span><a name="line-158"></a><span>
+</span><a name="line-159"></a><span class="hs-comment">-- type TellFile t = Ap (TellFileF t)</span><span>
+</span><a name="line-160"></a><span>
+</span><a name="line-161"></a><span class="hs-comment">-- tellFile :: FilePath -&gt; t -&gt; TellFile t ()</span><span>
+</span><a name="line-162"></a><span class="hs-comment">-- tellFile fp = liftAp . TF fp</span><span>
+</span><a name="line-163"></a><span>
+</span><a name="line-164"></a><span class="hs-comment">-- type TellFile t = Ap (AskFileF t :|: TellFileF t)</span><span>
+</span><a name="line-165"></a><span>
+</span><a name="line-166"></a><span class="hs-comment">-- tellFile :: FilePath -&gt; t -&gt; TellFile t ()</span><span>
+</span><a name="line-167"></a><span class="hs-comment">-- tellFile fp = liftAp . R . TF fp</span><span>
+</span><a name="line-168"></a><span>
+</span><a name="line-169"></a><span class="hs-comment">-- askFile' :: FilePath -&gt; TellFile t t</span><span>
+</span><a name="line-170"></a><span class="hs-comment">-- askFile' = liftAp . L . AF</span><span>
+</span><a name="line-171"></a><span>
+</span><a name="line-172"></a><span class="hs-comment">-- Data flow:</span><span>
+</span><a name="line-173"></a><span class="hs-comment">--</span><span>
+</span><a name="line-174"></a><span class="hs-comment">-- 1. Get all file changes</span><span>
+</span><a name="line-175"></a><span class="hs-comment">-- 2. Update branch info with file changes</span><span>
+</span><a name="line-176"></a><span class="hs-comment">-- 3. Update canonical with branch info</span><span>
+</span><a name="line-177"></a><span class="hs-comment">-- 4. Propagate canonical to branch info</span><span>
+</span><a name="line-178"></a><span class="hs-comment">-- 5. Sync filesystem with branch info</span><span>
+</span><a name="line-179"></a><span class="hs-comment">--</span><span>
+</span><a name="line-180"></a><span class="hs-comment">-- Maybe try the 'git' style of storing states and diffing on-the-fly:</span><span>
+</span><a name="line-181"></a><span class="hs-comment">--</span><span>
+</span><a name="line-182"></a><span class="hs-comment">-- 1. Update all branches based on filesystem</span><span>
+</span><a name="line-183"></a><span class="hs-comment">-- 2. Aggregate branches into canonical representation</span><span>
+</span><a name="line-184"></a><span class="hs-comment">-- 3. Propagate canonical representations to branches</span><span>
+</span><a name="line-185"></a><span class="hs-comment">-- 4. Sync filesystem with branches</span><span>
+</span><a name="line-186"></a><span>
+</span><a name="line-187"></a><span class="hs-comment">-- data FileUpdate = FU { _fuTime :: UTCTime</span><span>
+</span><a name="line-188"></a><span class="hs-comment">--                      , _fuBody :: BS.ByteString</span><span>
+</span><a name="line-189"></a><span class="hs-comment">--                      }</span><span>
+</span><a name="line-190"></a><span>
+</span><a name="line-191"></a><span class="hs-identifier">realizedPath</span><span>
+</span><a name="line-192"></a><span>    </span><span class="hs-glyph">::</span><span> </span><a href="Text.Pandoc.Sync.html#BranchSpec"><span class="hs-identifier hs-type">BranchSpec</span></a><span>
+</span><a name="line-193"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.html#CanPath"><span class="hs-identifier hs-type">CanPath</span></a><span>
+</span><a name="line-194"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">FilePath</span><span>
+</span><a name="line-195"></a><a name="realizedPath"><a href="Text.Pandoc.Sync.html#realizedPath"><span class="hs-identifier">realizedPath</span></a></a><span> </span><a href="Text.Pandoc.Sync.html#BS"><span class="hs-identifier hs-var">BS</span></a><span class="hs-special">{</span><span class="hs-glyph">..</span><span class="hs-special">}</span><span> </span><a name="local-6989586621679423640"><a href="#local-6989586621679423640"><span class="hs-identifier">p</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="#local-6989586621679423637"><span class="hs-identifier hs-var">_bsRoot</span></a><span> </span><span class="hs-operator hs-var">&lt;/&gt;</span><span> </span><a href="#local-6989586621679423640"><span class="hs-identifier hs-var">p</span></a><span> </span><span class="hs-operator hs-var">-&lt;.&gt;</span><span> </span><a href="#local-6989586621679423639"><span class="hs-identifier hs-var">_bsExt</span></a><span>
+</span><a name="line-196"></a><span>
+</span><a name="line-197"></a><span class="hs-comment">-- classify</span><span>
+</span><a name="line-198"></a><span class="hs-comment">--     :: Config</span><span>
+</span><a name="line-199"></a><span class="hs-comment">--     -&gt; FilePath</span><span>
+</span><a name="line-200"></a><span class="hs-comment">--     -&gt; M.Map BranchSpec CanPath     -- canonical</span><span>
+</span><a name="line-201"></a><span class="hs-comment">-- classify C{..} fp = M.fromList $ do</span><span>
+</span><a name="line-202"></a><span class="hs-comment">--     rootElems &lt;- drop 1 . reverse . inits . splitPath $ fp</span><span>
+</span><a name="line-203"></a><span class="hs-comment">--     let root = takeDirectory . joinPath $ rootElems</span><span>
+</span><a name="line-204"></a><span class="hs-comment">--         bs   = BS root format</span><span>
+</span><a name="line-205"></a><span class="hs-comment">--         can  = dropExtension . makeRelative root $ fp</span><span>
+</span><a name="line-206"></a><span class="hs-comment">--     _ &lt;- maybeToList $ M.lookup bs _cBranches</span><span>
+</span><a name="line-207"></a><span class="hs-comment">--     return (bs, can)</span><span>
+</span><a name="line-208"></a><span class="hs-comment">--   where</span><span>
+</span><a name="line-209"></a><span class="hs-comment">--     format = inferFormat (drop 1 (takeExtension fp))</span><span>
+</span><a name="line-210"></a><span>
+</span><a name="line-211"></a><span>
+</span><a name="line-212"></a><span class="hs-identifier">updateBranch</span><span>
+</span><a name="line-213"></a><span>    </span><span class="hs-glyph">::</span><span> </span><a href="Text.Pandoc.Sync.html#CanPath"><span class="hs-identifier hs-type">CanPath</span></a><span>
+</span><a name="line-214"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">UTCTime</span><span>
+</span><a name="line-215"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.html#Branch"><span class="hs-identifier hs-type">Branch</span></a><span>
+</span><a name="line-216"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.html#Branch"><span class="hs-identifier hs-type">Branch</span></a><span>
+</span><a name="line-217"></a><a name="updateBranch"><a href="Text.Pandoc.Sync.html#updateBranch"><span class="hs-identifier">updateBranch</span></a></a><span> </span><a name="local-6989586621679423770"><a href="#local-6989586621679423770"><span class="hs-identifier">p</span></a></a><span> </span><a name="local-6989586621679423771"><a href="#local-6989586621679423771"><span class="hs-identifier">t</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">set</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">at</span><span> </span><a href="#local-6989586621679423770"><span class="hs-identifier hs-var">p</span></a><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">Just</span><span> </span><a href="#local-6989586621679423771"><span class="hs-identifier hs-var">t</span></a><span class="hs-special">)</span><span>
+</span><a name="line-218"></a><span>
+</span><a name="line-219"></a><span class="hs-identifier">updateCanonical</span><span>
+</span><a name="line-220"></a><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">M</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Map</span><span> </span><a href="Text.Pandoc.Sync.html#BranchSpec"><span class="hs-identifier hs-type">BranchSpec</span></a><span> </span><a href="Text.Pandoc.Sync.html#Branch"><span class="hs-identifier hs-type">Branch</span></a><span>
+</span><a name="line-221"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.html#Canonical"><span class="hs-identifier hs-type">Canonical</span></a><span>
+</span><a name="line-222"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.html#AskFile"><span class="hs-identifier hs-type">AskFile</span></a><span> </span><span class="hs-identifier hs-type">P</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Pandoc</span><span> </span><a href="Text.Pandoc.Sync.html#Canonical"><span class="hs-identifier hs-type">Canonical</span></a><span>
+</span><a name="line-223"></a><a name="updateCanonical"><a href="Text.Pandoc.Sync.html#updateCanonical"><span class="hs-identifier">updateCanonical</span></a></a><span> </span><a name="local-6989586621679423850"><a href="#local-6989586621679423850"><span class="hs-identifier">bs</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">mergeA</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">traverseMaybeMissing</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-glyph">\</span><a name="local-6989586621679425357"><a href="#local-6989586621679425357"><span class="hs-identifier">p</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679423852"><span class="hs-identifier hs-var">mkUpdate</span></a><span> </span><a href="#local-6989586621679425357"><span class="hs-identifier hs-var">p</span></a><span> </span><span class="hs-identifier hs-var">mempty</span><span class="hs-special">)</span><span>
+</span><a name="line-224"></a><span>                              </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">preserveMissing</span><span>
+</span><a name="line-225"></a><span>                              </span><span class="hs-special">(</span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">zipWithMaybeAMatched</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-glyph">\</span><a name="local-6989586621679425358"><a href="#local-6989586621679425358"><span class="hs-identifier">p</span></a></a><span> </span><a name="local-6989586621679425359"><a href="#local-6989586621679425359"><span class="hs-identifier">us</span></a></a><span> </span><span class="hs-special">(</span><a href="Text.Pandoc.Sync.html#CF"><span class="hs-identifier hs-var">CF</span></a><span> </span><a name="local-6989586621679425360"><a href="#local-6989586621679425360"><span class="hs-identifier">pd0</span></a></a><span> </span><a name="local-6989586621679425361"><a href="#local-6989586621679425361"><span class="hs-identifier">t0</span></a></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a name="line-226"></a><span>                                    </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">_</span><span class="hs-special">,</span><span> </span><a name="local-6989586621679425362"><a href="#local-6989586621679425362"><span class="hs-identifier">candidates</span></a></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">split</span><span> </span><a href="#local-6989586621679425361"><span class="hs-identifier hs-var">t0</span></a><span> </span><a href="#local-6989586621679425359"><span class="hs-identifier hs-var">us</span></a><span>
+</span><a name="line-227"></a><span>                                    </span><span class="hs-keyword">in</span><span>  </span><a href="#local-6989586621679423852"><span class="hs-identifier hs-var">mkUpdate</span></a><span> </span><a href="#local-6989586621679425358"><span class="hs-identifier hs-var">p</span></a><span> </span><a href="#local-6989586621679425360"><span class="hs-identifier hs-var">pd0</span></a><span> </span><a href="#local-6989586621679425362"><span class="hs-identifier hs-var">candidates</span></a><span>
+</span><a name="line-228"></a><span>                              </span><span class="hs-special">)</span><span>
+</span><a name="line-229"></a><span>                              </span><a href="#local-6989586621679423851"><span class="hs-identifier hs-var">paths</span></a><span>
+</span><a name="line-230"></a><span>  </span><span class="hs-keyword">where</span><span>
+</span><a name="line-231"></a><span>    </span><span class="hs-comment">-- | Map of all canonical paths inside 'bs', sorted by update time</span><span>
+</span><a name="line-232"></a><span>    </span><span class="hs-identifier">paths</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">M</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Map</span><span> </span><a href="Text.Pandoc.Sync.html#CanPath"><span class="hs-identifier hs-type">CanPath</span></a><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">M</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Map</span><span> </span><span class="hs-identifier hs-type">UTCTime</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">S</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Set</span><span> </span><a href="Text.Pandoc.Sync.html#BranchSpec"><span class="hs-identifier hs-type">BranchSpec</span></a><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-233"></a><span>    </span><a name="local-6989586621679423851"><a href="#local-6989586621679423851"><span class="hs-identifier">paths</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">unionsWith</span><span> </span><span class="hs-operator hs-var">.</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">unionWith</span><span class="hs-special">)</span><span> </span><span class="hs-identifier hs-var">S</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">union</span><span>
+</span><a name="line-234"></a><span>          </span><span class="hs-operator hs-var">.</span><span> </span><span class="hs-identifier hs-var">ifoldMap</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><a name="local-6989586621679424997"><a href="#local-6989586621679424997"><span class="hs-identifier">sp</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">:</span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-operator hs-var">.</span><span> </span><span class="hs-identifier hs-var">fmap</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">flip</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">singleton</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">S</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">singleton</span><span> </span><a href="#local-6989586621679424997"><span class="hs-identifier hs-var">sp</span></a><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-235"></a><span>          </span><span class="hs-operator hs-var">$</span><span> </span><a href="#local-6989586621679423850"><span class="hs-identifier hs-var">bs</span></a><span>
+</span><a name="line-236"></a><span>    </span><span class="hs-identifier">mkUpdate</span><span>
+</span><a name="line-237"></a><span>        </span><span class="hs-glyph">::</span><span> </span><a href="Text.Pandoc.Sync.html#CanPath"><span class="hs-identifier hs-type">CanPath</span></a><span>
+</span><a name="line-238"></a><span>        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">P</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Pandoc</span><span>
+</span><a name="line-239"></a><span>        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">M</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Map</span><span> </span><span class="hs-identifier hs-type">UTCTime</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">S</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Set</span><span> </span><a href="Text.Pandoc.Sync.html#BranchSpec"><span class="hs-identifier hs-type">BranchSpec</span></a><span class="hs-special">)</span><span>
+</span><a name="line-240"></a><span>        </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.html#AskFile"><span class="hs-identifier hs-type">AskFile</span></a><span> </span><span class="hs-identifier hs-type">P</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Pandoc</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Maybe</span><span> </span><a href="Text.Pandoc.Sync.html#CFile"><span class="hs-identifier hs-type">CFile</span></a><span class="hs-special">)</span><span>
+</span><a name="line-241"></a><span>    </span><a name="local-6989586621679423852"><a href="#local-6989586621679423852"><span class="hs-identifier">mkUpdate</span></a></a><span> </span><a name="local-6989586621679424998"><a href="#local-6989586621679424998"><span class="hs-identifier">p</span></a></a><span> </span><a name="local-6989586621679424999"><a href="#local-6989586621679424999"><span class="hs-identifier">pd0</span></a></a><span> </span><a name="local-6989586621679425000"><a href="#local-6989586621679425000"><span class="hs-identifier">us</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a name="line-242"></a><span>        </span><a name="local-6989586621679425341"><a href="#local-6989586621679425341"><span class="hs-identifier">res</span></a></a><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier hs-var">fmap</span><span> </span><span class="hs-special">(</span><a href="Text.Pandoc.Sync.html#mergeDocs"><span class="hs-identifier hs-var">mergeDocs</span></a><span> </span><a href="#local-6989586621679424999"><span class="hs-identifier hs-var">pd0</span></a><span class="hs-special">)</span><span>
+</span><a name="line-243"></a><span>             </span><span class="hs-operator hs-var">.</span><span> </span><span class="hs-identifier hs-var">traverse</span><span> </span><span class="hs-special">(</span><a href="Text.Pandoc.Sync.html#askFile"><span class="hs-identifier hs-var">askFile</span></a><span> </span><span class="hs-operator hs-var">.</span><span> </span><span class="hs-identifier hs-var">flip</span><span> </span><a href="Text.Pandoc.Sync.html#realizedPath"><span class="hs-identifier hs-var">realizedPath</span></a><span> </span><a href="#local-6989586621679424998"><span class="hs-identifier hs-var">p</span></a><span class="hs-special">)</span><span>
+</span><a name="line-244"></a><span>             </span><span class="hs-operator hs-var">.</span><span> </span><span class="hs-identifier hs-var">foldMap</span><span> </span><span class="hs-identifier hs-var">toList</span><span>
+</span><a name="line-245"></a><span>             </span><span class="hs-operator hs-var">$</span><span> </span><a href="#local-6989586621679425000"><span class="hs-identifier hs-var">us</span></a><span>
+</span><a name="line-246"></a><span>        </span><span class="hs-identifier">pure</span><span> </span><span class="hs-operator">$</span><span> </span><a href="Text.Pandoc.Sync.html#CF"><span class="hs-identifier hs-var">CF</span></a><span> </span><a href="#local-6989586621679425341"><span class="hs-identifier hs-var">res</span></a><span> </span><span class="hs-operator hs-var">.</span><span> </span><span class="hs-identifier hs-var">fst</span><span> </span><span class="hs-operator hs-var">&lt;$&gt;</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">lookupMax</span><span> </span><a href="#local-6989586621679425000"><span class="hs-identifier hs-var">us</span></a><span>
+</span><a name="line-247"></a><span>
+</span><a name="line-248"></a><span class="hs-identifier">allRequests</span><span>
+</span><a name="line-249"></a><span>    </span><span class="hs-glyph">::</span><span> </span><a href="Text.Pandoc.Sync.html#AskFile"><span class="hs-identifier hs-type">AskFile</span></a><span> </span><a href="#local-6989586621679423624"><span class="hs-identifier hs-type">a</span></a><span> </span><a href="#local-6989586621679423625"><span class="hs-identifier hs-type">b</span></a><span>
+</span><a name="line-250"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">S</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Set</span><span> </span><span class="hs-identifier hs-type">FilePath</span><span>
+</span><a name="line-251"></a><a name="allRequests"><a href="Text.Pandoc.Sync.html#allRequests"><span class="hs-identifier">allRequests</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">getConst</span><span> </span><span class="hs-operator hs-var">.</span><span> </span><span class="hs-identifier hs-var">runAp</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-keyword">case</span><span> </span><a href="Text.Pandoc.Sync.html#AF"><span class="hs-identifier hs-var">AF</span></a><span> </span><a name="local-6989586621679425363"><a href="#local-6989586621679425363"><span class="hs-identifier">fp</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-var">Const</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">S</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">singleton</span><span> </span><a href="#local-6989586621679425363"><span class="hs-identifier hs-var">fp</span></a><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a name="line-252"></a><span>
+</span><a name="line-253"></a><span class="hs-identifier">syncBranch</span><span>
+</span><a name="line-254"></a><span>    </span><span class="hs-glyph">::</span><span> </span><a href="Text.Pandoc.Sync.html#Canonical"><span class="hs-identifier hs-type">Canonical</span></a><span>
+</span><a name="line-255"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.html#Branch"><span class="hs-identifier hs-type">Branch</span></a><span>
+</span><a name="line-256"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.html#Branch"><span class="hs-identifier hs-type">Branch</span></a><span>
+</span><a name="line-257"></a><a name="syncBranch"><a href="Text.Pandoc.Sync.html#syncBranch"><span class="hs-identifier">syncBranch</span></a></a><span> </span><a name="local-6989586621679425364"><a href="#local-6989586621679425364"><span class="hs-identifier">cs</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">merge</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">mapMissing</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-special">(</span><a href="Text.Pandoc.Sync.html#CF"><span class="hs-identifier hs-var">CF</span></a><span> </span><span class="hs-identifier">_</span><span> </span><a name="local-6989586621679425365"><a href="#local-6989586621679425365"><span class="hs-identifier">t</span></a></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679425365"><span class="hs-identifier hs-var">t</span></a><span class="hs-special">)</span><span>
+</span><a name="line-258"></a><span>                        </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">dropMissing</span><span>
+</span><a name="line-259"></a><span>                        </span><span class="hs-special">(</span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">zipWithMatched</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-special">(</span><a href="Text.Pandoc.Sync.html#CF"><span class="hs-identifier hs-var">CF</span></a><span> </span><span class="hs-identifier">_</span><span> </span><a name="local-6989586621679425366"><a href="#local-6989586621679425366"><span class="hs-identifier">t0</span></a></a><span class="hs-special">)</span><span> </span><a name="local-6989586621679425367"><a href="#local-6989586621679425367"><span class="hs-identifier">t1</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-var">max</span><span> </span><a href="#local-6989586621679425366"><span class="hs-identifier hs-var">t0</span></a><span> </span><a href="#local-6989586621679425367"><span class="hs-identifier hs-var">t1</span></a><span class="hs-special">)</span><span>
+</span><a name="line-260"></a><span>                        </span><a href="#local-6989586621679425364"><span class="hs-identifier hs-var">cs</span></a><span>
+</span><a name="line-261"></a><span>
+</span><a name="line-262"></a><span class="hs-identifier">pullBranch</span><span>
+</span><a name="line-263"></a><span>    </span><span class="hs-glyph">::</span><span> </span><a href="Text.Pandoc.Sync.html#BranchSpec"><span class="hs-identifier hs-type">BranchSpec</span></a><span>
+</span><a name="line-264"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">S</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Set</span><span> </span><a href="Text.Pandoc.Sync.html#CanPath"><span class="hs-identifier hs-type">CanPath</span></a><span>
+</span><a name="line-265"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.html#AskFile"><span class="hs-identifier hs-type">AskFile</span></a><span> </span><span class="hs-identifier hs-type">UTCTime</span><span> </span><a href="Text.Pandoc.Sync.html#Branch"><span class="hs-identifier hs-type">Branch</span></a><span>
+</span><a name="line-266"></a><a name="pullBranch"><a href="Text.Pandoc.Sync.html#pullBranch"><span class="hs-identifier">pullBranch</span></a></a><span> </span><a name="local-6989586621679425368"><a href="#local-6989586621679425368"><span class="hs-identifier">bs</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">sequenceA</span><span> </span><span class="hs-operator hs-var">.</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">fromSet</span><span> </span><span class="hs-special">(</span><a href="Text.Pandoc.Sync.html#askFile"><span class="hs-identifier hs-var">askFile</span></a><span> </span><span class="hs-operator hs-var">.</span><span> </span><a href="Text.Pandoc.Sync.html#realizedPath"><span class="hs-identifier hs-var">realizedPath</span></a><span> </span><a href="#local-6989586621679425368"><span class="hs-identifier hs-var">bs</span></a><span class="hs-special">)</span><span>
+</span><a name="line-267"></a><span>
+</span><a name="line-268"></a><span class="hs-identifier">pushBranch</span><span>
+</span><a name="line-269"></a><span>    </span><span class="hs-glyph">::</span><span> </span><a href="Text.Pandoc.Sync.html#BranchSpec"><span class="hs-identifier hs-type">BranchSpec</span></a><span>
+</span><a name="line-270"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><a href="Text.Pandoc.Sync.html#Canonical"><span class="hs-identifier hs-type">Canonical</span></a><span>
+</span><a name="line-271"></a><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">M</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Map</span><span> </span><span class="hs-identifier hs-type">FilePath</span><span> </span><span class="hs-identifier hs-type">P</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Pandoc</span><span>  </span><span class="hs-comment">-- ^ list of files to update</span><span>
+</span><a name="line-272"></a><a name="pushBranch"><a href="Text.Pandoc.Sync.html#pushBranch"><span class="hs-identifier">pushBranch</span></a></a><span> </span><a name="local-6989586621679425369"><a href="#local-6989586621679425369"><span class="hs-identifier">bs</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">fromList</span><span>
+</span><a name="line-273"></a><span>              </span><span class="hs-operator hs-var">.</span><span> </span><span class="hs-identifier hs-var">map</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">bimap</span><span> </span><span class="hs-special">(</span><a href="Text.Pandoc.Sync.html#realizedPath"><span class="hs-identifier hs-var">realizedPath</span></a><span> </span><a href="#local-6989586621679425369"><span class="hs-identifier hs-var">bs</span></a><span class="hs-special">)</span><span> </span><span class="hs-identifier">_cfPandoc</span><span class="hs-special">)</span><span>
+</span><a name="line-274"></a><span>              </span><span class="hs-operator hs-var">.</span><span> </span><span class="hs-identifier hs-var">M</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">toList</span><span>
+</span><a name="line-275"></a><span>
+</span><a name="line-276"></a><span class="hs-identifier">mergeDocs</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">P</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Pandoc</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-identifier hs-type">P</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Pandoc</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">P</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Pandoc</span><span>
+</span><a name="line-277"></a><a name="mergeDocs"><a href="Text.Pandoc.Sync.html#mergeDocs"><span class="hs-identifier">mergeDocs</span></a></a><span> </span><a name="local-6989586621679425370"><a href="#local-6989586621679425370"><span class="hs-identifier">orig</span></a></a><span> </span><a name="local-6989586621679425371"><a href="#local-6989586621679425371"><span class="hs-identifier">ps</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">fromMaybe</span><span> </span><a href="#local-6989586621679425370"><span class="hs-identifier hs-var">orig</span></a><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a name="line-278"></a><span>    </span><a name="local-6989586621679425377"><a href="#local-6989586621679425377"><span class="hs-identifier">e</span></a></a><span> </span><span class="hs-identifier hs-var">NE</span><span class="hs-operator hs-var">.:|</span><span> </span><a name="local-6989586621679425378"><a href="#local-6989586621679425378"><span class="hs-identifier">es</span></a></a><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier hs-var">fmap</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">diff</span><span> </span><a href="#local-6989586621679425370"><span class="hs-identifier hs-var">orig</span></a><span class="hs-special">)</span><span> </span><span class="hs-operator hs-var">&lt;$&gt;</span><span> </span><span class="hs-identifier hs-var">NE</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">nonEmpty</span><span> </span><a href="#local-6989586621679425371"><span class="hs-identifier hs-var">ps</span></a><span>
+</span><a name="line-279"></a><span>    </span><span class="hs-identifier hs-var">patch</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">foldl'</span><span> </span><a href="#local-6989586621679425372"><span class="hs-identifier hs-var">go</span></a><span> </span><a href="#local-6989586621679425377"><span class="hs-identifier hs-var">e</span></a><span> </span><a href="#local-6989586621679425378"><span class="hs-identifier hs-var">es</span></a><span class="hs-special">)</span><span> </span><a href="#local-6989586621679425370"><span class="hs-identifier hs-var">orig</span></a><span>
+</span><a name="line-280"></a><span>  </span><span class="hs-keyword">where</span><span>
+</span><a name="line-281"></a><span>    </span><span class="hs-identifier">go</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Edit</span><span> </span><span class="hs-identifier hs-type">P</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Pandoc</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">Edit</span><span> </span><span class="hs-identifier hs-type">P</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Pandoc</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">Edit</span><span> </span><span class="hs-identifier hs-type">P</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">Pandoc</span><span>
+</span><a name="line-282"></a><span>    </span><a name="local-6989586621679425372"><a href="#local-6989586621679425372"><span class="hs-identifier">go</span></a></a><span> </span><a name="local-6989586621679425373"><a href="#local-6989586621679425373"><span class="hs-identifier">old</span></a></a><span> </span><a name="local-6989586621679425374"><a href="#local-6989586621679425374"><span class="hs-identifier">new</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="hs-identifier hs-var">mergePatch</span><span> </span><a href="#local-6989586621679425373"><span class="hs-identifier hs-var">old</span></a><span> </span><a href="#local-6989586621679425374"><span class="hs-identifier hs-var">new</span></a><span> </span><span class="hs-keyword">of</span><span>
+</span><a name="line-283"></a><span>      </span><span class="hs-identifier hs-var">Incompatible</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679425373"><span class="hs-identifier hs-var">old</span></a><span>
+</span><a name="line-284"></a><span>      </span><span class="hs-identifier hs-var">Conflict</span><span> </span><a name="local-6989586621679425375"><a href="#local-6989586621679425375"><span class="hs-identifier">p</span></a></a><span>   </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679425375"><span class="hs-identifier hs-var">p</span></a><span>
+</span><a name="line-285"></a><span>      </span><span class="hs-identifier hs-var">NoConflict</span><span> </span><a name="local-6989586621679425376"><a href="#local-6989586621679425376"><span class="hs-identifier">p</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="#local-6989586621679425376"><span class="hs-identifier hs-var">p</span></a><span>
+</span><a name="line-286"></a><span>
+</span><a name="line-287"></a><span class="hs-comment">-- syncSS</span><span>
+</span><a name="line-288"></a><span class="hs-comment">--     :: SyncState</span><span>
+</span><a name="line-289"></a><span class="hs-comment">--     -&gt; Program (AskFileF P.Pandoc :|: AskFileF UTCTime :|: UpdateFileF P.Pandoc) SyncState</span><span>
+</span><a name="line-290"></a><span class="hs-comment">-- syncSS = undefined</span><span>
+</span><a name="line-291"></a><span class="hs-comment">-- -- data SyncState = SS { _ssCanonical :: Canonical</span><span>
+</span><a name="line-292"></a><span class="hs-comment">-- --                     , _ssBranches  :: M.Map BranchSpec Branch</span><span>
+</span><a name="line-293"></a><span class="hs-comment">-- --                     }</span><span>
+</span><a name="line-294"></a><span>
+</span><a name="line-295"></a><span>
+</span><a name="line-296"></a><span class="hs-comment">-- updateSync</span><span>
+</span><a name="line-297"></a><span class="hs-comment">--     :: FileUpdate</span><span>
+</span><a name="line-298"></a><span class="hs-comment">--     -&gt; SyncState</span><span>
+</span><a name="line-299"></a><span class="hs-comment">--     -&gt; (SyncState, [Int])</span><span>
+</span><a name="line-300"></a><span class="hs-comment">-- updateSync FU{..} SS{..} = _</span><span>
+</span><a name="line-301"></a><span>
+</span><a name="line-302"></a><span class="hs-comment">-- data Update = FileChange FilePath UTCTime BS.ByteString</span><span>
+</span><a name="line-303"></a><span class="hs-comment">--             | FileAdd    FilePath UTCTime BS.ByteString</span><span>
+</span><a name="line-304"></a></pre></body></html>

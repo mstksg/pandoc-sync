@@ -16,12 +16,14 @@ For example, with configuration:
 ```yaml
 branches:
   md:               # directory
-    markdown: {}    # format
-  doc:
-    docx: {}
+    markdown:       # format
+      ext: md       # extension
+  word:
+    docx: {}        # no extension: inferred from format
     rtf: {}
   web:
-    html: {}
+    html5:
+      ext: html
 ```
 
 Would define four different branches ("realizations") of the canonical files.
@@ -45,7 +47,7 @@ This would be realized as:
 |  +- bar.md
 |  +- more/
 |     +- baz.md
-+- doc/
++- word/
 |  +- foo.docx
 |  +- foo.rtf
 |  +- bar.docx

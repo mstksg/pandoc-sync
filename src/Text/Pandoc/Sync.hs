@@ -1,25 +1,32 @@
+{-# LANGUAGE ApplicativeDo       #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE KindSignatures      #-}
+{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeInType          #-}
+{-# LANGUAGE TypeOperators       #-}
 
 module Text.Pandoc.Sync (
     Config
   , updateCanonical
-  , syncBranches
+  , syncBranch
   , updateBranch
+  , pushBranch
+  , pullBranch
   ) where
 
 -- import           Control.Alternative.Free.Final
--- import           Control.Applicative.Free
 -- import           Data.List
+-- import           System.Directory
 -- import qualified Data.Aeson.Types               as A
 -- import qualified Data.ByteString                as BS
 -- import qualified Data.Text                      as T
+-- import qualified Generics.SOP                   as SOP
+import           Control.Applicative.Free
 import           Control.Lens
 import           Control.Monad.Operational
 import           Data.Aeson
@@ -28,16 +35,17 @@ import           Data.Diff
 import           Data.Foldable
 import           Data.Kind
 import           Data.Maybe
-import           Data.Semigroup hiding             (diff)
+import           Data.Semigroup hiding        (diff)
 import           Data.Time
+import           Data.Type.Disjunction
+import           Orphans                      ()
 import           System.FilePath
 import           Text.Pandoc.Sync.Format
-import qualified Data.List.NonEmpty                as NE
-import qualified Data.Map                          as M
-import qualified Data.Map.Merge.Lazy               as M
-import qualified Data.Set                          as S
-import qualified Generics.SOP                      as SOP
-import qualified Text.Pandoc.Definition            as P
+import qualified Data.List.NonEmpty           as NE
+import qualified Data.Map                     as M
+import qualified Data.Map.Merge.Lazy          as M
+import qualified Data.Set                     as S
+import qualified Text.Pandoc.Definition       as P
 
 type CanPath = FilePath
 type Extension = String
@@ -75,7 +83,8 @@ instance Semigroup Opts where
     _ <> _ = O
 
 instance Monoid Opts where
-    mempty = O
+    mempty  = O
+    mappend = (<>)
 
 data FileConfig = FC { _fcOpts     :: Opts
                      , _fcBranches :: M.Map BranchSpec Opts
@@ -106,7 +115,7 @@ instance FromJSON FileConfig where
     parseJSON = withObject "FileConfig" $ \v -> do
       opts     <- v .:? "options"  .!= def
       branches <- v .:? "branches" .!= M.empty
-      return $ FC opts (collapseMap (\p (f, e) -> BS p f e) branches)
+      return $ FC opts (collapseMap (\p f -> BS p f "md") branches)
 
 instance FromJSON Opts where
     parseJSON = withObject "Opts" $ \v ->
@@ -117,7 +126,7 @@ instance FromJSON Config where
         opts     <- v .:? "options"  .!= def
         branches <- v .:? "branches" .!= M.empty
         files    <- v .:? "files"    .!= M.empty
-        return $ C opts (collapseMap (\p (f, e) -> BS p f e) branches) files
+        return $ C opts (collapseMap (\p f -> BS p f "md") branches) files
 
 -- classify
 --     :: Config
@@ -133,13 +142,32 @@ instance FromJSON Config where
 --   where
 --     format = inferFormat (drop 1 (takeExtension fp))
 
-data LoadPF :: Type -> Type where
-    LoadP :: FilePath -> LoadPF P.Pandoc
+data AskFileF :: Type -> Type -> Type where
+    AF :: FilePath -> AskFileF t t
 
-type LoadP = Program LoadPF
+type AskFile t = Ap (AskFileF t)
 
-loadP :: FilePath -> LoadP P.Pandoc
-loadP = singleton . LoadP
+askFile :: FilePath -> AskFile t t
+askFile = liftAp . AF
+
+data UpdateFileF :: Type -> Type -> Type where
+    UF :: FilePath -> s -> UpdateFileF s ()
+
+-- data TellFileF :: Type -> Type -> Type where
+--     TF :: FilePath -> s -> TellFileF s ()
+
+-- type TellFile t = Ap (TellFileF t)
+
+-- tellFile :: FilePath -> t -> TellFile t ()
+-- tellFile fp = liftAp . TF fp
+
+-- type TellFile t = Ap (AskFileF t :|: TellFileF t)
+
+-- tellFile :: FilePath -> t -> TellFile t ()
+-- tellFile fp = liftAp . R . TF fp
+
+-- askFile' :: FilePath -> TellFile t t
+-- askFile' = liftAp . L . AF
 
 -- Data flow:
 --
@@ -166,6 +194,21 @@ realizedPath
     -> FilePath
 realizedPath BS{..} p = _bsRoot </> p -<.> _bsExt
 
+classify
+    :: Config
+    -> FilePath
+    -> M.Map BranchSpec CanPath     -- canonical
+classify C{..} fp = M.fromList $ do
+    rootElems <- drop 1 . reverse . inits . splitPath $ fp
+    let root = takeDirectory . joinPath $ rootElems
+        bs   = BS root format
+        can  = dropExtension . makeRelative root $ fp
+    _ <- maybeToList $ M.lookup bs _cBranches
+    return (bs, can)
+  where
+    format = inferFormat (drop 1 (takeExtension fp))
+
+
 updateBranch
     :: CanPath
     -> UTCTime
@@ -176,7 +219,7 @@ updateBranch p t = set (at p) (Just t)
 updateCanonical
     :: M.Map BranchSpec Branch
     -> Canonical
-    -> LoadP Canonical
+    -> AskFile P.Pandoc Canonical
 updateCanonical bs = M.mergeA (M.traverseMaybeMissing $ \p -> mkUpdate p mempty)
                               M.preserveMissing
                               (M.zipWithMaybeAMatched $ \p us (CF pd0 t0) ->
@@ -194,27 +237,41 @@ updateCanonical bs = M.mergeA (M.traverseMaybeMissing $ \p -> mkUpdate p mempty)
         :: CanPath
         -> P.Pandoc
         -> M.Map UTCTime (S.Set BranchSpec)
-        -> LoadP (Maybe CFile)
+        -> AskFile P.Pandoc (Maybe CFile)
     mkUpdate p pd0 us = do
         res <- fmap (mergeDocs pd0)
-             . traverse (loadP . flip realizedPath p)
+             . traverse (askFile . flip realizedPath p)
              . foldMap toList
              $ us
         pure $ CF res . fst <$> M.lookupMax us
 
-syncBranches
-    :: Canonical
-    -> M.Map BranchSpec Branch
-    -> M.Map BranchSpec Branch
-syncBranches cs = fmap go
-  where
-    go :: Branch -> Branch
-    go = M.merge (M.mapMissing $ \_ (CF _ t) -> t)
-                 M.dropMissing
-                 (M.zipWithMatched $ \_ (CF _ t0) t1 -> max t0 t1)
-                 cs
+allRequests
+    :: AskFile a b
+    -> S.Set FilePath
+allRequests = getConst . runAp (\case AF fp -> Const (S.singleton fp))
 
--- type Branch    = M.Map CanPath UTCTime
+syncBranch
+    :: Canonical
+    -> Branch
+    -> Branch
+syncBranch cs = M.merge (M.mapMissing $ \_ (CF _ t) -> t)
+                        M.dropMissing
+                        (M.zipWithMatched $ \_ (CF _ t0) t1 -> max t0 t1)
+                        cs
+
+pullBranch
+    :: BranchSpec
+    -> S.Set CanPath
+    -> AskFile UTCTime Branch
+pullBranch bs = sequenceA . M.fromSet (askFile . realizedPath bs)
+
+pushBranch
+    :: BranchSpec
+    -> Canonical
+    -> M.Map FilePath P.Pandoc  -- ^ list of files to update
+pushBranch bs = M.fromList
+              . map (bimap (realizedPath bs) _cfPandoc)
+              . M.toList
 
 mergeDocs :: P.Pandoc -> [P.Pandoc] -> P.Pandoc
 mergeDocs orig ps = fromMaybe orig $ do
@@ -227,6 +284,15 @@ mergeDocs orig ps = fromMaybe orig $ do
       Conflict p   -> p
       NoConflict p -> p
 
+-- syncSS
+--     :: SyncState
+--     -> Program (AskFileF P.Pandoc :|: AskFileF UTCTime :|: UpdateFileF P.Pandoc) SyncState
+-- syncSS = undefined
+-- -- data SyncState = SS { _ssCanonical :: Canonical
+-- --                     , _ssBranches  :: M.Map BranchSpec Branch
+-- --                     }
+
+
 -- updateSync
 --     :: FileUpdate
 --     -> SyncState
@@ -235,45 +301,3 @@ mergeDocs orig ps = fromMaybe orig $ do
 
 -- data Update = FileChange FilePath UTCTime BS.ByteString
 --             | FileAdd    FilePath UTCTime BS.ByteString
-
-instance SOP.Generic P.Pandoc
-instance SOP.Generic P.Meta
-instance SOP.Generic P.MetaValue
-instance SOP.Generic P.Block
-instance SOP.Generic P.Inline
-instance SOP.Generic P.Format
-instance SOP.Generic P.QuoteType
-instance SOP.Generic P.ListNumberStyle
-instance SOP.Generic P.ListNumberDelim
-instance SOP.Generic P.Alignment
-instance SOP.Generic P.MathType
-instance SOP.Generic P.Citation
-instance SOP.Generic P.CitationMode
-
-instance SOP.HasDatatypeInfo P.Pandoc
-instance SOP.HasDatatypeInfo P.Meta
-instance SOP.HasDatatypeInfo P.MetaValue
-instance SOP.HasDatatypeInfo P.Block
-instance SOP.HasDatatypeInfo P.Inline
-instance SOP.HasDatatypeInfo P.Format
-instance SOP.HasDatatypeInfo P.QuoteType
-instance SOP.HasDatatypeInfo P.ListNumberStyle
-instance SOP.HasDatatypeInfo P.ListNumberDelim
-instance SOP.HasDatatypeInfo P.Alignment
-instance SOP.HasDatatypeInfo P.MathType
-instance SOP.HasDatatypeInfo P.Citation
-instance SOP.HasDatatypeInfo P.CitationMode
-
-instance Diff P.Pandoc
-instance Diff P.Meta
-instance Diff P.MetaValue
-instance Diff P.Block
-instance Diff P.Inline
-instance Diff P.Format
-instance Diff P.QuoteType
-instance Diff P.ListNumberStyle
-instance Diff P.ListNumberDelim
-instance Diff P.Alignment
-instance Diff P.MathType
-instance Diff P.Citation
-instance Diff P.CitationMode

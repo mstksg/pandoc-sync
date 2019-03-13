@@ -20,6 +20,8 @@ dependencies:
 library:
   source-dirs: src
   ghc-options: -Wall
+  other-modules:
+    - Orphans
   # exposed-modules:
   # - Text.Pandoc.Sync
   # - Text.Pandoc.Sync.Format

@@ -194,19 +194,19 @@ realizedPath
     -> FilePath
 realizedPath BS{..} p = _bsRoot </> p -<.> _bsExt
 
-classify
-    :: Config
-    -> FilePath
-    -> M.Map BranchSpec CanPath     -- canonical
-classify C{..} fp = M.fromList $ do
-    rootElems <- drop 1 . reverse . inits . splitPath $ fp
-    let root = takeDirectory . joinPath $ rootElems
-        bs   = BS root format
-        can  = dropExtension . makeRelative root $ fp
-    _ <- maybeToList $ M.lookup bs _cBranches
-    return (bs, can)
-  where
-    format = inferFormat (drop 1 (takeExtension fp))
+-- classify
+--     :: Config
+--     -> FilePath
+--     -> M.Map BranchSpec CanPath     -- canonical
+-- classify C{..} fp = M.fromList $ do
+--     rootElems <- drop 1 . reverse . inits . splitPath $ fp
+--     let root = takeDirectory . joinPath $ rootElems
+--         bs   = BS root format
+--         can  = dropExtension . makeRelative root $ fp
+--     _ <- maybeToList $ M.lookup bs _cBranches
+--     return (bs, can)
+--   where
+--     format = inferFormat (drop 1 (takeExtension fp))
 
 
 updateBranch

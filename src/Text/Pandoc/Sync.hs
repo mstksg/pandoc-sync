@@ -37,7 +37,7 @@ import           Data.Kind
 import           Data.Maybe
 import           Data.Semigroup hiding        (diff)
 import           Data.Time
-import           Data.Type.Disjunction
+-- import           Data.Type.Disjunction
 import           Orphans                      ()
 import           System.FilePath
 import           Text.Pandoc.Sync.Format

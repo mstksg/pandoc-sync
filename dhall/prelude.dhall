@@ -1,4 +1,4 @@
-let Types = ./types.dhall
+let types = ./types.dhall
 
 let defaultGlobalOptions =
         { always-backup =
@@ -8,7 +8,7 @@ let defaultGlobalOptions =
         , variables =
             [] : List { key : Text, val : Text }
         }
-      : Types.GlobalOptions
+      : types.GlobalOptions
 
 let defaultBranchOptions =
         { always-backup =
@@ -18,20 +18,24 @@ let defaultBranchOptions =
         , discover =
             None Bool
         , mode =
-            None Types.Mode
+            None types.Mode
         , priority =
             5
         , reference =
-            Types.Reference.Self {=}
+            types.Reference.Self {=}
         }
-      : Types.BranchOptions
+      : types.BranchOptions
 
 in  { defaultGlobalOptions =
         defaultGlobalOptions
     , defaultBranchOptions =
         defaultBranchOptions
     , defaultBranch =
-        λ(d : Text) → { dir = d, options = defaultBranchOptions } : Types.Branch
+          λ(d : Text)
+        → λ(fs : List types.Format)
+        →   { dir = d, formats = fs, options = defaultBranchOptions }
+          : types.Branch
     , defaultConfig =
-        { options = defaultGlobalOptions, branches = [] : List Types.Branch }
+          λ(bs : List types.Branch)
+        → { options = defaultGlobalOptions, branches = bs }
     }

@@ -2,6 +2,8 @@
     ./types/Branch.dhall
 , BranchOptions =
     ./types/BranchOptions.dhall
+, Format =
+    ./types/Format.dhall
 , Config =
     ./types/Config.dhall
 , GlobalOptions =

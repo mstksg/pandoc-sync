@@ -160,8 +160,8 @@ deriving instance Eq (Format r w)
 instance (SingI r, SingI w) => Bi.Binary (Format r w) where
     get = do
       SomeFormat r w ft <- Bi.get
-      Si.Proved Refl <- return $ r Si.%~ (sing @_ @r)
-      Si.Proved Refl <- return $ w Si.%~ (sing @_ @w)
+      Si.Proved Refl <- return $ r Si.%~ (sing @r)
+      Si.Proved Refl <- return $ w Si.%~ (sing @w)
       return ft
     put = Bi.put . someFormat
 
@@ -193,12 +193,12 @@ instance AsFormat Format where
                                  )
 
 asReader :: forall r' r w. SingI r' => Sing r -> Traversal' (Format r' w) (Format r w)
-asReader sr f = case sing @_ @r' Si.%~ sr of
+asReader sr f = case sing @r' Si.%~ sr of
     Si.Proved Refl -> f
     Si.Disproved _ -> pure
 
 writeOnly :: forall r. SingI r => Format r 'True -> Format 'False 'True
-writeOnly = case sing @_ @r of
+writeOnly = case sing @r of
     SFalse -> id
     STrue  -> FMkWriteOnly
 
@@ -330,14 +330,14 @@ hasIfMaybe = \case
     Hasn't -> Nothing
 
 _HasIf :: forall r a b. SingI r => Prism (HasIf r a) (HasIf r b) a b
-_HasIf = prism (case sing @_ @r of
+_HasIf = prism (case sing @r of
                   STrue -> Has
                   SFalse -> const Hasn't
                )
                (\case Has x -> Right x; Hasn't -> Left Hasn't)
 
 instance (SingI b, Bi.Binary a) => Bi.Binary (HasIf b a) where
-    get = case sing @_ @b of
+    get = case sing @b of
       STrue  -> Has <$> Bi.get
       SFalse -> return Hasn't
     put = \case
@@ -345,7 +345,7 @@ instance (SingI b, Bi.Binary a) => Bi.Binary (HasIf b a) where
       Hasn't -> return ()
 
 instance (SingI b, Default a) => Default (HasIf b a) where
-    def = case sing @_ @b of
+    def = case sing @b of
       STrue  -> Has def
       SFalse -> Hasn't
 
@@ -356,7 +356,7 @@ instance Hashable a => Hashable (HasIf b a) where
       Hasn't -> s `hashWithSalt` (1 :: Int)
 
 instance (SingI b, FromJSON a) => FromJSON (HasIf b a) where
-    parseJSON = case sing @_ @b of
+    parseJSON = case sing @b of
       STrue  -> fmap Has . parseJSON
       SFalse -> const $ pure Hasn't
 
@@ -518,10 +518,10 @@ instance Bi.Binary (Writer FormatOptions) where
     get = do
       r <- Bi.get @Bool
       withSomeSing r $ \(sr :: Sing r) -> withSingI sr $ do
-        Writer @_ @r <$> Bi.get
+        Writer @r <$> Bi.get
     put = \case
       Writer (fo :: FormatOptions r 'True) -> do
-        Bi.put (fromSing (sing @_ @r))
+        Bi.put (fromSing (sing @r))
         Bi.put fo
 
 instance Hashable (Writer FormatOptions) where
@@ -842,13 +842,13 @@ parseSomeFormat = do
 instance FromJSON SomeFormat where
     parseJSON = withText "SomeFormat" $ \t ->
       case MP.parse parseSomeFormat "Value" t of
-        Left  e  -> fail $ MP.parseErrorPretty e
+        Left  e  -> fail $ MP.errorBundlePretty e
         Right sf -> return sf
 
 instance FromJSONKey SomeFormat where
     fromJSONKey = FromJSONKeyTextParser $ \t ->
       case MP.parse parseSomeFormat "Key" t of
-        Left  e  -> fail $ MP.parseErrorPretty e
+        Left  e  -> fail $ MP.errorBundlePretty e
         Right sf -> return sf
 
 unparseFormat :: Format r w -> T.Text

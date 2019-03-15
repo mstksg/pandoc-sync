@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-10.5
+resolver: nightly-2019-03-14
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -37,18 +37,16 @@ resolver: lts-10.5
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - '.'
-- location:
-    git: https://github.com/mstksg/data-diff.git
-    commit: 9363488a6ee68a1a3434d72645c88f4eedf9b074
-  extra-dep: true
-- location:
-    git: https://github.com/mstksg/diff3
-    commit: 73bca0e44f35b965f792084f10e3a3e6a493d39c
-  extra-dep: true
 
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
-extra-deps: []
+extra-deps:
+- github: mstksg/type-combinators
+  commit: 50334ab6bc3e5c3aee53c881a027f687fde13fa4
+- github: mstksg/diff3
+  commit: a5441b43ff7e5502cacf75c2f2d57d190f8106ae
+- github: mstksg/data-diff
+  commit: 6af66d93e5b044a1cd9b45f60d48f7454745424e
 
 # Override default flag values for local packages and extra-deps
 flags: {}

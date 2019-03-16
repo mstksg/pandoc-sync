@@ -1,1 +1,32 @@
-< Markdown : {} | Docx : {} | Rtf : {} | HTML : {} >
+< Native : {}
+  | JSON : {}
+  | Markdown : { type : ./MarkdownType.dhall, lhs : Bool }
+  | RST : {}
+  | MediaWiki : {}
+  | DocBook : Bool
+  | OPML : {}
+  | Org : {}
+  | Textile : {}
+  | HTML : Bool
+  | LaTeX : {}
+  | Haddock : {}
+  | TWiki : {}
+  | DocX : {}
+  | ODT : {}
+  | T2T : {}
+  | EPub : ./EPUBVersion.dhall
+  | FictionBook2 : {}
+  | ICML : {}
+  | SlideShow : ./SlideShowType.dhall
+  | OpenDocument : {}
+  | ConTeXt : {}
+  | Texinfo : {}
+  | Man : {}
+  | Plain : {}
+  | DokuWiki : {}
+  | ZimWiki : {}
+  | ASCIIDoc : {}
+  | TEI : {}
+  | PDF : ./PDFType.dhall
+  | RTF : {}
+  >

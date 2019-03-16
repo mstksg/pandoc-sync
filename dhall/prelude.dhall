@@ -38,4 +38,7 @@ in  { defaultGlobalOptions =
     , defaultConfig =
           λ(bs : List types.Branch)
         → { options = defaultGlobalOptions, branches = bs }
+    , markdown =
+        types.Format.Markdown
+        { type = types.MarkdownType.Pandoc {=}, lhs = False }
     }

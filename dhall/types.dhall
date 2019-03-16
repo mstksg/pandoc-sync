@@ -12,4 +12,12 @@
     ./types/Mode.dhall
 , Reference =
     ./types/Reference.dhall
+, PDFType =
+    ./types/PDFType.dhall
+, EPUBVersion =
+    ./types/EPUBVersion.dhall
+, SlideShowType =
+    ./types/SlideShowType.dhall
+, MarkdownType =
+    ./types/MarkdownType.dhall
 }

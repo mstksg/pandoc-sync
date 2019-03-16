@@ -57,7 +57,6 @@ import           Data.Function
 import           Data.Hashable
 import           Data.Kind
 import           Data.Maybe
-import           Data.Monoid
 import           Data.Singletons
 import           Data.Singletons.Prelude.Bool
 import           Data.Type.Equality
@@ -70,6 +69,7 @@ import qualified Data.IntMap                  as IM
 import qualified Data.Map                     as M
 import qualified Data.Singletons.Decide       as Si
 import qualified Data.Text                    as T
+import qualified Dhall                        as D
 import qualified Skylighting                  as Sky
 import qualified Text.Megaparsec              as MP
 import qualified Text.Megaparsec.Char         as MP
@@ -1005,3 +1005,99 @@ inferFormat ext = case map toLower ext of
     [y] | y `elem` ['1'..'9'] -> someFormat FMan
     "html5"     -> someFormat $ FHTML True
     _           -> someFormat $ FHTML False
+
+instance D.Interpret MarkdownType where
+    autoWith _ = D.union . mconcat $
+        [ MDPandoc <$ D.constructor "Pandoc" D.unit
+        , MDStrict <$ D.constructor "Strict" D.unit
+        , MDPHP <$ D.constructor "PHP" D.unit
+        , MDGithub <$ D.constructor "Github" D.unit
+        , MDMulti <$ D.constructor "Multi" D.unit
+        , MDCommon <$ D.constructor "Common" D.unit
+        ]
+
+epubVersionType :: D.Type P.EPUBVersion
+epubVersionType = D.union . mconcat $
+    [ P.EPUB2 <$ D.constructor "EPUB2" D.unit
+    , P.EPUB3 <$ D.constructor "EPUB3" D.unit
+    ]
+
+instance D.Interpret SlideShowType where
+    autoWith _ = D.union . mconcat $
+        [ SSS5 <$ D.constructor "S5" D.unit
+        , SSSlidy <$ D.constructor "Slidy" D.unit
+        , SSSlideous <$ D.constructor "Slideous" D.unit
+        , SSDZSlides <$ D.constructor "DZSlides" D.unit
+        , SSRevealJS <$ D.constructor "RevealJS" D.unit
+        , SSBeamer <$ D.constructor "Beamer" D.unit
+        ]
+
+instance D.Interpret PDFType where
+    autoWith _ = D.union . mconcat $
+        [ PTLaTeX <$ D.constructor "LaTeX" D.unit
+        , PTBeamer <$ D.constructor "Beamer" D.unit
+        , PTConTeXt <$ D.constructor "ConTeXt" D.unit
+        , PTHTML5 <$ D.constructor "HTML5" D.unit
+        ]
+
+instance D.Interpret SomeFormat where
+    autoWith _ = D.union . mconcat $
+        [ someFormat FNative <$ D.constructor "Native" D.unit
+        , someFormat FJSON   <$ D.constructor "JSON" D.unit
+        , fmap someFormat . D.constructor "Markdown" . D.record $
+            FMarkdown <$> D.field "type" D.auto
+                      <*> D.field "lhs" D.auto
+        , someFormat FRST     <$ D.constructor "RST" D.unit
+        , someFormat FMediaWiki <$ D.constructor "MediaWiki" D.unit
+        , someFormat . FDocBook   <$> D.constructor "DocBook" D.auto
+        , someFormat FOPML <$ D.constructor "OPML" D.unit
+        , someFormat FOrg <$ D.constructor "Org" D.unit
+        , someFormat FTextile <$ D.constructor "Textile" D.unit
+        , someFormat . FHTML   <$> D.constructor "HTML" D.auto
+        , someFormat FLaTeX <$ D.constructor "LaTeX" D.unit
+        , someFormat FHaddock <$ D.constructor "Haddock" D.unit
+        , someFormat FTWiki <$ D.constructor "TWiki" D.unit
+        , someFormat FDocX <$ D.constructor "DocX" D.unit
+        , someFormat FODT <$ D.constructor "ODT" D.unit
+        , someFormat FT2T <$ D.constructor "T2T" D.unit
+        , someFormat . FEPub <$> D.constructor "EPub" epubVersionType
+        , someFormat FFictionBook2 <$ D.constructor "FictionBook2" D.unit
+        , someFormat FICML <$ D.constructor "ICML" D.unit
+        , someFormat . FSlideShow <$> D.constructor "SlideShow" D.auto
+        , someFormat FOpenDocument <$ D.constructor "OpenDocument" D.unit
+        , someFormat FConTeXt <$ D.constructor "ConTeXt" D.unit
+        , someFormat FTexinfo <$ D.constructor "Texinfo" D.unit
+        , someFormat FMan <$ D.constructor "Man" D.unit
+        , someFormat FPlain <$ D.constructor "Plain" D.unit
+        , someFormat FDokuWiki <$ D.constructor "DokuWiki" D.unit
+        , someFormat FZimWiki <$ D.constructor "ZimWiki" D.unit
+        , someFormat FASCIIDoc <$ D.constructor "ASCIIDoc" D.unit
+        , someFormat FTEI <$ D.constructor "TEI" D.unit
+        , someFormat . FPDF <$> D.constructor "PDF" D.auto
+        , someFormat FRTF <$ D.constructor "RTF" D.unit
+        ]
+
+--     FT2T          :: Format 'True  'False
+--     FEPub         :: P.EPUBVersion
+--                   -> Format 'True  'True
+--     FFictionBook2 :: Format 'False 'True
+--     FICML         :: Format 'False 'True
+--     FSlideShow    :: SlideShowType
+--                   -> Format 'False 'True
+--     FOpenDocument :: Format 'False 'True
+--     FConTeXt      :: Format 'False 'True
+--     FTexinfo      :: Format 'False 'True
+--     FMan          :: Format 'False 'True
+--     FPlain        :: Format 'False 'True
+--     FDokuWiki     :: Format 'False 'True
+--     FZimWiki      :: Format 'False 'True
+--     FASCIIDoc     :: Format 'False 'True
+--     FTEI          :: Format 'False 'True
+--     FPDF          :: PDFType
+--                   -> Format 'False 'True
+--     FRTF          :: Format 'False 'True
+--     FMkWriteOnly  :: Format 'True  'True
+--                   -> Format 'False 'True
+--     FMkReadOnly   :: Format 'True  'True
+--                   -> Format 'True  'False
+

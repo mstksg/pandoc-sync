@@ -7,8 +7,8 @@ let branch = prelude.defaultBranch
 let Format = types.Format
 
 in  prelude.defaultConfig
-    [ branch "md" [ Format.Markdown {=} ]
-    , branch "md/md2" [ Format.Markdown {=} ]
-    , branch "doc" [ Format.Docx {=}, Format.Rtf {=} ]
-    , branch "web" [ Format.HTML {=} ]
+    [ branch "md" [ prelude.markdown ]
+    , branch "md/md2" [ prelude.markdown ]
+    , branch "doc" [ Format.DocX {=}, Format.RTF {=} ]
+    , branch "web" [ Format.HTML True ]
     ]

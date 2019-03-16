@@ -47,6 +47,10 @@ extra-deps:
   commit: a5441b43ff7e5502cacf75c2f2d57d190f8106ae
 - github: mstksg/data-diff
   commit: 6af66d93e5b044a1cd9b45f60d48f7454745424e
+- github: mstksg/dhall-haskell
+  commit: 020559a69faef852a45bef4cf573d90f57de650b
+  subdirs:
+  - dhall
 
 # Override default flag values for local packages and extra-deps
 flags: {}

@@ -52,6 +52,7 @@ library:
   - free
   - operational
   - data-diff
+  - dhall
 # executables:
 #   pandoc-sync:
 #     main: Sync.hs

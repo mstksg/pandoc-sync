@@ -1,1 +1,1 @@
-< Normal : {} | Write : {} | Read : {} >
+< ReadWrite : {} | WriteOnly : {} | ReadOnly : {} >

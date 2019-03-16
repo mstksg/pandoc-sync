@@ -20,14 +20,14 @@ SSSlideous :: SlideShowType
 SSDZSlides :: SlideShowType
 SSRevealJS :: SlideShowType
 SSBeamer :: SlideShowType
-class AsSlideShowType r_a1wzF
-_SlideShowType :: AsSlideShowType r_a1wzF => Prism' r_a1wzF SlideShowType
-_SSS5 :: AsSlideShowType r_a1wzF => Prism' r_a1wzF ()
-_SSSlidy :: AsSlideShowType r_a1wzF => Prism' r_a1wzF ()
-_SSSlideous :: AsSlideShowType r_a1wzF => Prism' r_a1wzF ()
-_SSDZSlides :: AsSlideShowType r_a1wzF => Prism' r_a1wzF ()
-_SSRevealJS :: AsSlideShowType r_a1wzF => Prism' r_a1wzF ()
-_SSBeamer :: AsSlideShowType r_a1wzF => Prism' r_a1wzF ()
+class AsSlideShowType r_a1zkA
+_SlideShowType :: AsSlideShowType r_a1zkA => Prism' r_a1zkA SlideShowType
+_SSS5 :: AsSlideShowType r_a1zkA => Prism' r_a1zkA ()
+_SSSlidy :: AsSlideShowType r_a1zkA => Prism' r_a1zkA ()
+_SSSlideous :: AsSlideShowType r_a1zkA => Prism' r_a1zkA ()
+_SSDZSlides :: AsSlideShowType r_a1zkA => Prism' r_a1zkA ()
+_SSRevealJS :: AsSlideShowType r_a1zkA => Prism' r_a1zkA ()
+_SSBeamer :: AsSlideShowType r_a1zkA => Prism' r_a1zkA ()
 data PDFType
 PTLaTeX :: PDFType
 PTBeamer :: PDFType
@@ -107,28 +107,28 @@ WO :: Bool -> Maybe FilePath -> Maybe FilePath -> HTMLMathMethod -> Map String S
 [_woHighlight] :: WriterOptions -> Bool
 [_woHighlightStyle] :: WriterOptions -> HighlightStyle
 [_woColumns] :: WriterOptions -> Int
-class HasWriterOptions c_a1AOO
-writerOptions :: HasWriterOptions c_a1AOO => Lens' c_a1AOO WriterOptions
-woColumns :: HasWriterOptions c_a1AOO => Lens' c_a1AOO Int
-woDataDir :: HasWriterOptions c_a1AOO => Lens' c_a1AOO (Maybe FilePath)
-woHighlight :: HasWriterOptions c_a1AOO => Lens' c_a1AOO Bool
-woHighlightStyle :: HasWriterOptions c_a1AOO => Lens' c_a1AOO HighlightStyle
-woMathMethod :: HasWriterOptions c_a1AOO => Lens' c_a1AOO HTMLMathMethod
-woReferenceDocX :: HasWriterOptions c_a1AOO => Lens' c_a1AOO (Maybe FilePath)
-woReferenceODT :: HasWriterOptions c_a1AOO => Lens' c_a1AOO (Maybe FilePath)
-woStandalone :: HasWriterOptions c_a1AOO => Lens' c_a1AOO Bool
-woTOC :: HasWriterOptions c_a1AOO => Lens' c_a1AOO Bool
-woTabStop :: HasWriterOptions c_a1AOO => Lens' c_a1AOO Int
-woTemplatePath :: HasWriterOptions c_a1AOO => Lens' c_a1AOO (Maybe FilePath)
-woVariables :: HasWriterOptions c_a1AOO => Lens' c_a1AOO (Map String String)
+class HasWriterOptions c_a1DAY
+writerOptions :: HasWriterOptions c_a1DAY => Lens' c_a1DAY WriterOptions
+woColumns :: HasWriterOptions c_a1DAY => Lens' c_a1DAY Int
+woDataDir :: HasWriterOptions c_a1DAY => Lens' c_a1DAY (Maybe FilePath)
+woHighlight :: HasWriterOptions c_a1DAY => Lens' c_a1DAY Bool
+woHighlightStyle :: HasWriterOptions c_a1DAY => Lens' c_a1DAY HighlightStyle
+woMathMethod :: HasWriterOptions c_a1DAY => Lens' c_a1DAY HTMLMathMethod
+woReferenceDocX :: HasWriterOptions c_a1DAY => Lens' c_a1DAY (Maybe FilePath)
+woReferenceODT :: HasWriterOptions c_a1DAY => Lens' c_a1DAY (Maybe FilePath)
+woStandalone :: HasWriterOptions c_a1DAY => Lens' c_a1DAY Bool
+woTOC :: HasWriterOptions c_a1DAY => Lens' c_a1DAY Bool
+woTabStop :: HasWriterOptions c_a1DAY => Lens' c_a1DAY Int
+woTemplatePath :: HasWriterOptions c_a1DAY => Lens' c_a1DAY (Maybe FilePath)
+woVariables :: HasWriterOptions c_a1DAY => Lens' c_a1DAY (Map String String)
 formatReader :: PandocMonad m => Format  'True w -> Reader m
 formatWriter :: PandocMonad m => Format r  'True -> Writer m
 data FormatOptions :: Bool -> Bool -> Type
 [FormatOptions] :: {_foFormat :: Format r w, _foReaderOpts :: HasIf r ReaderOptions, _foWriterOpts :: HasIf w WriterOptions} -> FormatOptions r w
-foFormat :: forall a_a1AXF b_a1AXG. Lens' (FormatOptions a_a1AXF b_a1AXG) (Format a_a1AXF b_a1AXG)
+foFormat :: forall a_a1DJP b_a1DJQ. Lens' (FormatOptions a_a1DJP b_a1DJQ) (Format a_a1DJP b_a1DJQ)
 pdfFormat :: PDFType -> Writer Format
-foWriterOpts :: forall a_a1AXF b_a1AXG. Lens' (FormatOptions a_a1AXF b_a1AXG) (HasIf b_a1AXG WriterOptions)
-foReaderOpts :: forall a_a1AXF b_a1AXG. Lens' (FormatOptions a_a1AXF b_a1AXG) (HasIf a_a1AXF ReaderOptions)
+foWriterOpts :: forall a_a1DJP b_a1DJQ. Lens' (FormatOptions a_a1DJP b_a1DJQ) (HasIf b_a1DJQ WriterOptions)
+foReaderOpts :: forall a_a1DJP b_a1DJQ. Lens' (FormatOptions a_a1DJP b_a1DJQ) (HasIf a_a1DJP ReaderOptions)
 readerString :: Format  'True w -> String
 writerString :: Format r  'True -> String
 data HasIf :: Bool -> Type -> Type
@@ -152,6 +152,10 @@ instance Data.Aeson.Types.FromJSON.FromJSON Text.Pandoc.Sync.Format.SomeFormat
 instance Data.Aeson.Types.FromJSON.FromJSONKey Text.Pandoc.Sync.Format.SomeFormat
 instance Data.Aeson.Types.ToJSON.ToJSON (Text.Pandoc.Sync.Format.Format r w)
 instance Data.Aeson.Types.FromJSON.FromJSON (Text.Pandoc.Sync.Format.Writer Text.Pandoc.Sync.Format.Format)
+instance Dhall.Interpret Text.Pandoc.Sync.Format.MarkdownType
+instance Dhall.Interpret Text.Pandoc.Sync.Format.SlideShowType
+instance Dhall.Interpret Text.Pandoc.Sync.Format.PDFType
+instance Dhall.Interpret Text.Pandoc.Sync.Format.SomeFormat
 instance GHC.Generics.Generic (Text.Pandoc.Sync.Format.FormatOptions a b)
 instance GHC.Show.Show (Text.Pandoc.Sync.Format.FormatOptions a b)
 instance Text.Pandoc.Sync.Format.HasWriterOptions Text.Pandoc.Sync.Format.WriterOptions
@@ -228,24 +232,65 @@ instance GHC.Show.Show Text.Pandoc.Sync.Format.MarkdownType
 instance Data.Binary.Class.Binary Text.Pandoc.Sync.Format.MarkdownType
 
 module Text.Pandoc.Sync
+
+module Text.Pandoc.Sync.Types
+data GlobalOptions
+GlobalOptions :: Bool -> Map Text Text -> Bool -> GlobalOptions
+[goAlwaysBackup] :: GlobalOptions -> Bool
+[goVariables] :: GlobalOptions -> Map Text Text
+[goDiscover] :: GlobalOptions -> Bool
+data Mode
+MReadWrite :: Mode
+MWriteOnly :: Mode
+MReadOnly :: Mode
+data Reference
+RSelf :: Reference
+RDefault :: Reference
+RFile :: FilePath -> Reference
+data BranchOptions
+BranchOptions :: Maybe Bool -> Map Text Text -> Maybe Bool -> Maybe Mode -> Natural -> Reference -> BranchOptions
+[boAlwaysBackup] :: BranchOptions -> Maybe Bool
+[boVariables] :: BranchOptions -> Map Text Text
+[boDiscover] :: BranchOptions -> Maybe Bool
+[boMode] :: BranchOptions -> Maybe Mode
+[boPriority] :: BranchOptions -> Natural
+[boReference] :: BranchOptions -> Reference
+data Branch
+Branch :: BranchOptions -> FilePath -> [SomeFormat] -> Branch
+[brOptions] :: Branch -> BranchOptions
+[brDir] :: Branch -> FilePath
+[brFormats] :: Branch -> [SomeFormat]
 data Config
-updateCanonical :: Map BranchSpec Branch -> Canonical -> AskFile Pandoc Canonical
-syncBranch :: Canonical -> Branch -> Branch
-updateBranch :: CanPath -> UTCTime -> Branch -> Branch
-pushBranch :: BranchSpec -> Canonical -> Map FilePath Pandoc
-pullBranch :: BranchSpec -> Set CanPath -> AskFile UTCTime Branch
-instance GHC.Show.Show Text.Pandoc.Sync.Config
-instance GHC.Show.Show Text.Pandoc.Sync.FileConfig
-instance GHC.Show.Show Text.Pandoc.Sync.Opts
-instance Data.Aeson.Types.FromJSON.FromJSON Text.Pandoc.Sync.Config
-instance Data.Aeson.Types.FromJSON.FromJSON Text.Pandoc.Sync.FileConfig
-instance GHC.Base.Semigroup Text.Pandoc.Sync.Opts
-instance GHC.Base.Monoid Text.Pandoc.Sync.Opts
-instance Data.Default.Class.Default Text.Pandoc.Sync.Opts
-instance Data.Aeson.Types.FromJSON.FromJSON Text.Pandoc.Sync.Opts
-instance GHC.Classes.Ord Text.Pandoc.Sync.CFile
-instance GHC.Classes.Eq Text.Pandoc.Sync.CFile
-instance GHC.Show.Show Text.Pandoc.Sync.CFile
-instance GHC.Classes.Ord Text.Pandoc.Sync.BranchSpec
-instance GHC.Classes.Eq Text.Pandoc.Sync.BranchSpec
-instance GHC.Show.Show Text.Pandoc.Sync.BranchSpec
+Config :: GlobalOptions -> [Branch] -> Config
+[cfgOptions] :: Config -> GlobalOptions
+[cfgBanches] :: Config -> [Branch]
+instance GHC.Generics.Generic Text.Pandoc.Sync.Types.Config
+instance GHC.Classes.Ord Text.Pandoc.Sync.Types.Config
+instance GHC.Classes.Eq Text.Pandoc.Sync.Types.Config
+instance GHC.Show.Show Text.Pandoc.Sync.Types.Config
+instance GHC.Generics.Generic Text.Pandoc.Sync.Types.Branch
+instance GHC.Classes.Ord Text.Pandoc.Sync.Types.Branch
+instance GHC.Classes.Eq Text.Pandoc.Sync.Types.Branch
+instance GHC.Show.Show Text.Pandoc.Sync.Types.Branch
+instance GHC.Generics.Generic Text.Pandoc.Sync.Types.BranchOptions
+instance GHC.Classes.Ord Text.Pandoc.Sync.Types.BranchOptions
+instance GHC.Classes.Eq Text.Pandoc.Sync.Types.BranchOptions
+instance GHC.Show.Show Text.Pandoc.Sync.Types.BranchOptions
+instance GHC.Generics.Generic Text.Pandoc.Sync.Types.Reference
+instance GHC.Classes.Ord Text.Pandoc.Sync.Types.Reference
+instance GHC.Classes.Eq Text.Pandoc.Sync.Types.Reference
+instance GHC.Show.Show Text.Pandoc.Sync.Types.Reference
+instance GHC.Generics.Generic Text.Pandoc.Sync.Types.Mode
+instance GHC.Classes.Ord Text.Pandoc.Sync.Types.Mode
+instance GHC.Classes.Eq Text.Pandoc.Sync.Types.Mode
+instance GHC.Show.Show Text.Pandoc.Sync.Types.Mode
+instance GHC.Generics.Generic Text.Pandoc.Sync.Types.GlobalOptions
+instance GHC.Classes.Ord Text.Pandoc.Sync.Types.GlobalOptions
+instance GHC.Classes.Eq Text.Pandoc.Sync.Types.GlobalOptions
+instance GHC.Show.Show Text.Pandoc.Sync.Types.GlobalOptions
+instance Dhall.Interpret Text.Pandoc.Sync.Types.Config
+instance Dhall.Interpret Text.Pandoc.Sync.Types.Branch
+instance Dhall.Interpret Text.Pandoc.Sync.Types.BranchOptions
+instance Dhall.Interpret Text.Pandoc.Sync.Types.Reference
+instance Dhall.Interpret Text.Pandoc.Sync.Types.Mode
+instance Dhall.Interpret Text.Pandoc.Sync.Types.GlobalOptions
